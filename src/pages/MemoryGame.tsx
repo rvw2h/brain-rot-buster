@@ -6,6 +6,7 @@ import QwertyPad from "@/components/game/QwertyPad";
 import confetti from "canvas-confetti";
 import { useAuth } from "@/contexts/AuthContext";
 import { persistGameSession } from "@/lib/gamePersistence";
+import { supabase } from "@/lib/supabase";
 
 type Phase = "pre" | "display" | "recall" | "result";
 
@@ -139,22 +140,36 @@ const MemoryGame = () => {
       }
 
       const startedAtIso =
-        gameStartRef.current != null ? new Date(gameStartRef.current).toISOString() : new Date().toISOString();
+        gameStartRef.current != null
+          ? new Date(gameStartRef.current).toISOString()
+          : new Date().toISOString();
       const completedAtIso = new Date().toISOString();
 
-      void persistGameSession({
-        gameType: "memory",
-        user: profile ?? null,
-        score: sc,
-        accuracyPct: accuracy,
-        startedAt: startedAtIso,
-        completedAt: completedAtIso,
-        metadata: {
-          totalWords: words.length,
-          recalledCount: recalled.size,
-          fuzzyCount,
-        },
-      });
+      void (async () => {
+        const sessionId = await persistGameSession({
+          gameType: "memory",
+          user: profile ?? null,
+          score: sc,
+          accuracyPct: accuracy,
+          startedAt: startedAtIso,
+          completedAt: completedAtIso,
+          metadata: {
+            totalWords: words.length,
+            recalledCount: recalled.size,
+            fuzzyCount,
+          },
+        });
+
+        if (sessionId) {
+          const recalledSet = new Set(recalled);
+          const rows = words.map((word) => ({
+            session_id: sessionId,
+            word,
+            was_recalled: recalledSet.has(word),
+          }));
+          await supabase.from("memory_session_words").insert(rows);
+        }
+      })();
     }
   }, [phase, recalled, lastSessionScore, words.length, fuzzyCount, accuracy, profile]);
 
