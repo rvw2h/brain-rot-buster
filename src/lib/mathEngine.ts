@@ -31,6 +31,19 @@ function getTermCount(level: number): number {
   return randInt(3, 5);
 }
 
+function countOps(node: ASTNode, op: Operator): number {
+  if (node.type === 'number') return 0;
+  const self = node.op === op ? 1 : 0;
+  return self + countOps(node.left!, op) + countOps(node.right!, op);
+}
+
+function hasChainedDivision(node: ASTNode): boolean {
+  if (node.type === 'number') return false;
+  if (node.op === '÷' && node.left?.type === 'operation' && node.left.op === '÷') return true;
+  if (node.op === '÷' && node.right?.type === 'operation' && node.right.op === '÷') return true;
+  return hasChainedDivision(node.left!) || hasChainedDivision(node.right!);
+}
+
 function buildAST(terms: number, ops: Operator[], numRange: [number, number]): ASTNode {
   if (terms === 1) {
     return { type: 'number', value: randInt(numRange[0], numRange[1]) };
@@ -72,7 +85,6 @@ function formatAST(node: ASTNode, parentOp?: Operator, isRight?: boolean): strin
 
   const expr = `${formatAST(node.left!, node.op)} ${node.op} ${formatAST(node.right!, node.op, true)}`;
 
-  // Add parentheses based on precedence
   const needsParens = parentOp && shouldWrap(parentOp, node.op!, isRight);
   return needsParens ? `(${expr})` : expr;
 }
@@ -101,16 +113,20 @@ export function generateQuestion(level: number): MathQuestion {
   const numRange = getNumRange(level);
   const terms = getTermCount(level);
 
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 50; attempt++) {
     const tree = buildAST(terms, ops, numRange);
     const result = evaluate(tree);
 
-    if (Number.isInteger(result) && result >= 0 && result <= 9999) {
+    // Constraints: positive integer, max 1 division, max 2 multiplications, no chained divisions
+    if (
+      Number.isInteger(result) &&
+      result >= 0 &&
+      result <= 9999 &&
+      countOps(tree, '÷') <= 1 &&
+      countOps(tree, '×') <= 2 &&
+      !hasChainedDivision(tree)
+    ) {
       const expression = formatAST(tree);
-      // Add parentheses sometimes for level 2+
-      if (level >= 2 && Math.random() < (level === 2 ? 0.3 : 0.6)) {
-        // The AST already handles precedence, parentheses are added naturally
-      }
       return { expression, answer: result, level };
     }
   }
