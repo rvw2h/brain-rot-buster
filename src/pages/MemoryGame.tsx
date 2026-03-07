@@ -3,11 +3,17 @@ import { useNavigate } from "react-router-dom";
 import { getWordsForSession, checkWord, calculateMemoryScore } from "@/lib/memoryEngine";
 import TimerBar from "@/components/game/TimerBar";
 import QwertyPad from "@/components/game/QwertyPad";
+import confetti from "canvas-confetti";
 
 type Phase = "pre" | "display" | "recall" | "result";
 
 const DISPLAY_TIME = 20;
 const RECALL_TIME = 100;
+
+interface WrongChip {
+  id: number;
+  text: string;
+}
 
 const MemoryGame = () => {
   const navigate = useNavigate();
@@ -17,14 +23,24 @@ const MemoryGame = () => {
   const [input, setInput] = useState("");
   const [recalled, setRecalled] = useState<Set<string>>(new Set());
   const [fuzzyCount, setFuzzyCount] = useState(0);
+  const [wrongChips, setWrongChips] = useState<WrongChip[]>([]);
+  const [lastSessionScore, setLastSessionScore] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
+  const wrongIdRef = useRef(0);
 
   const startGame = () => {
+    // Read last session score
+    const today = new Date().toISOString().split("T")[0];
+    const key = `bs_scores_${today}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "{}");
+    setLastSessionScore(existing.memory || null);
+
     const sessionWords = getWordsForSession();
     setWords(sessionWords);
     setRecalled(new Set());
     setFuzzyCount(0);
     setInput("");
+    setWrongChips([]);
     setTimeLeft(DISPLAY_TIME);
     setPhase("display");
   };
@@ -51,24 +67,23 @@ const MemoryGame = () => {
     return () => clearInterval(timerRef.current);
   }, [phase]);
 
-  // Transition from display to recall needs new timer
-  useEffect(() => {
-    if (phase === "recall" && timeLeft === RECALL_TIME) {
-      // Timer already set up by the effect above
-    }
-  }, [phase, timeLeft]);
-
   const handleSubmit = useCallback(() => {
     if (!input.trim() || phase !== "recall") return;
     const result = checkWord(input, words, recalled);
     if (result.match && result.word) {
       setRecalled((prev) => new Set(prev).add(result.word!));
       if (result.fuzzy) setFuzzyCount((p) => p + 1);
-      // Check if all words recalled
       if (recalled.size + 1 >= words.length) {
         setPhase("result");
         clearInterval(timerRef.current);
       }
+    } else {
+      // Show wrong chip that fades out
+      const id = ++wrongIdRef.current;
+      setWrongChips((prev) => [...prev, { id, text: input.trim() }]);
+      setTimeout(() => {
+        setWrongChips((prev) => prev.filter((c) => c.id !== id));
+      }, 2000);
     }
     setInput("");
   }, [input, phase, words, recalled]);
@@ -103,7 +118,7 @@ const MemoryGame = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [phase, handleSubmit]);
 
-  // Save score
+  // Save score + confetti
   useEffect(() => {
     if (phase === "result") {
       const sc = calculateMemoryScore(recalled.size);
@@ -117,8 +132,12 @@ const MemoryGame = () => {
       const best = parseInt(localStorage.getItem("bs_best") || "0");
       const total = (existing.math || 0) + (existing.memory || 0) + (existing.coloring || 0);
       if (total > best) localStorage.setItem("bs_best", String(total));
+
+      if (lastSessionScore !== null && sc > lastSessionScore) {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
     }
-  }, [phase, recalled]);
+  }, [phase, recalled, lastSessionScore]);
 
   const totalDuration = phase === "display" ? DISPLAY_TIME : RECALL_TIME;
   const timerPct = (timeLeft / totalDuration) * 100;
@@ -156,6 +175,8 @@ const MemoryGame = () => {
 
   // RESULT
   if (phase === "result") {
+    const delta = lastSessionScore !== null ? score - lastSessionScore : null;
+
     return (
       <div className="flex flex-col min-h-screen p-5">
         <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
@@ -167,6 +188,11 @@ const MemoryGame = () => {
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="font-display text-[60px] font-bold text-game-red leading-none">{score}</div>
           <div className="font-sans text-sm text-muted-foreground mt-1">points</div>
+          {delta !== null && delta !== 0 && (
+            <div className={`font-sans text-xs mt-1 ${delta > 0 ? "text-game-green" : "text-game-red"}`}>
+              {delta > 0 ? `↑ +${delta}` : `↓ ${delta}`} from last
+            </div>
+          )}
           <div className="flex gap-0 mt-7 w-full">
             {[
               [String(words.length), "words"],
@@ -188,6 +214,16 @@ const MemoryGame = () => {
           )}
         </div>
         <div className="flex gap-2.5 justify-center">
+          <button
+            onClick={() =>
+              navigate("/memory/words", {
+                state: { words, recalled: Array.from(recalled) },
+              })
+            }
+            className="border border-border/50 rounded-lg px-[18px] py-2.5 font-sans text-xs text-muted-foreground"
+          >
+            See All Words
+          </button>
           <button
             onClick={startGame}
             className="border border-border/50 rounded-lg px-[18px] py-2.5 font-sans text-xs text-muted-foreground"
@@ -259,6 +295,14 @@ const MemoryGame = () => {
               className="inline-block py-0.5 px-2.5 rounded-full bg-[hsl(var(--game-green)/0.12)] border border-[hsl(var(--game-green)/0.2)] font-sans text-[11px] text-game-green animate-chip-pop"
             >
               {w}
+            </span>
+          ))}
+          {wrongChips.map((chip) => (
+            <span
+              key={chip.id}
+              className="inline-block py-0.5 px-2.5 rounded-full bg-[hsl(var(--game-red)/0.12)] border border-[hsl(var(--game-red)/0.2)] font-sans text-[11px] text-game-red animate-chip-pop opacity-70"
+            >
+              {chip.text} ✗
             </span>
           ))}
         </div>
