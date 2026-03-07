@@ -1,35 +1,55 @@
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const Login = () => {
   const navigate = useNavigate();
 
-  const handleLogin = () => {
-    // For now, simulate login with localStorage
-    localStorage.setItem("bs_user", JSON.stringify({ name: "", loggedIn: true }));
-    navigate("/onboarding");
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/onboarding?method=google`,
+      },
+    });
+  };
+
+  const handleManual = () => {
+    navigate("/onboarding?method=manual");
   };
 
   return (
-    <div className="flex flex-col min-h-screen items-center justify-center px-7">
+    <div className="flex flex-col min-h-screen items-center justify-center px-7 relative">
+      <img src="/logo.png" alt="BrainSharp logo" className="w-[120px] h-[120px] mb-5 rounded-2xl" />
+
       <h1 className="font-display text-[28px] font-bold text-foreground text-center">
         BrainSharp
       </h1>
       <p className="font-sans text-sm text-muted-foreground mt-1.5 text-center">
-        Fight brain rot. Train daily.
+        Your daily brain health buddy
       </p>
 
-      <button
-        onClick={handleLogin}
-        className="mt-9 bg-foreground rounded-full px-6 h-11 flex items-center gap-2.5 justify-center shadow-lg"
-        style={{ width: 220 }}
-      >
-        <div className="w-[18px] h-[18px] rounded-full bg-[hsl(217,89%,61%)] flex-shrink-0" />
-        <span className="font-sans text-[13px] text-background font-medium">
-          Continue with Google
-        </span>
-      </button>
+      <div className="flex flex-col gap-3 mt-9 w-full max-w-[260px]">
+        <button
+          onClick={handleGoogle}
+          className="bg-white rounded-full h-11 flex items-center gap-2.5 justify-center shadow-lg px-6"
+        >
+          <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59a14.5 14.5 0 010-9.18l-7.98-6.19a24.0 24.0 0 000 21.56l7.98-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+          <span className="font-sans text-[13px] text-[#1C1C1E] font-medium">
+            Sign in with Google
+          </span>
+        </button>
 
-      <p className="font-sans text-[11px] text-t-tertiary mt-10 text-center">
+        <button
+          onClick={handleManual}
+          className="bg-foreground rounded-full h-11 flex items-center justify-center shadow-lg px-6"
+        >
+          <span className="font-sans text-[13px] text-background font-medium">
+            Enter manually →
+          </span>
+        </button>
+      </div>
+
+      <p className="font-sans text-[11px] text-t-tertiary absolute bottom-8 text-center">
         No spam. No notifications. Just you.
       </p>
     </div>
