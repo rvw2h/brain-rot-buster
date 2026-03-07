@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 
 const Onboarding = () => {
   const navigate = useNavigate();
@@ -17,10 +17,10 @@ const Onboarding = () => {
   // Pre-populate from Google session
   useEffect(() => {
     if (method === "google") {
-      supabase.auth.getUser().then(({ data }) => {
-        if (data.user) {
-          const meta = data.user.user_metadata;
-          if (meta?.full_name) setName(meta.full_name.split(" ")[0]);
+      supabase.auth.getSession().then(({ data }) => {
+        const user = data.session?.user;
+        if (user?.user_metadata?.full_name) {
+          setName(user.user_metadata.full_name.split(" ")[0]);
         }
       });
     }
@@ -48,52 +48,44 @@ const Onboarding = () => {
   const handleSubmit = async () => {
     if (!validate()) return;
 
-    const userData = {
-      name: name.trim(),
-      email: method === "manual" ? email : undefined,
-      age: age ? parseInt(age) : null,
-      city: city.trim() || null,
-      loggedIn: true,
-    };
+    const trimmedName = name.trim();
+    const parsedAge = age ? parseInt(age) : null;
+    const trimmedCity = city.trim() || null;
 
-    // Generate referral code
-    const namePrefix = name.trim().slice(0, 4).toUpperCase().padEnd(4, "X");
-    const hex = Math.floor(Math.random() * 256).toString(16).toUpperCase().padStart(2, "0");
-    const referralCode = `BRAIN-${namePrefix}${hex}`;
+    // Generate short referral code suffix (stored in DB)
+    const namePrefix = trimmedName.slice(0, 4).toUpperCase().padEnd(4, "X");
+    const rand = Math.floor(Math.random() * 1_000_000)
+      .toString(36)
+      .toUpperCase()
+      .padStart(4, "0");
+    const shortCode = `${namePrefix}${rand}`;
 
-    // Try upsert to Supabase users table
-    try {
-      const googleId = method === "manual" ? (email || `manual_${Date.now()}`) : undefined;
-      let userId: string | undefined;
-
-      if (method === "google") {
-        const { data: authData } = await supabase.auth.getUser();
-        if (authData.user) {
-          userId = authData.user.id;
-          await supabase.from("users").upsert({
-            id: userId,
-            first_name: name.trim(),
-            google_id: authData.user.email || "",
-            age: age ? parseInt(age) : null,
-            city: city.trim() || null,
-            referral_code: referralCode,
-          });
-        }
-      } else {
-        // Manual entry - insert without auth
-        const { data } = await supabase.from("users").insert({
-          first_name: name.trim(),
-          google_id: googleId || "",
-          age: age ? parseInt(age) : null,
-          city: city.trim() || null,
-          referral_code: referralCode,
-        }).select("id").single();
-        if (data) userId = data.id;
+    if (method === "google") {
+      const { data: authData } = await supabase.auth.getSession();
+      const authUser = authData.session?.user;
+      if (authUser) {
+        await supabase
+          .from("users")
+          .upsert(
+            {
+              first_name: trimmedName,
+              google_id: authUser.id,
+              age: parsedAge,
+              city: trimmedCity,
+              referral_code: shortCode,
+            },
+            { onConflict: "google_id" },
+          );
       }
-
-      localStorage.setItem("bs_user", JSON.stringify({ ...userData, id: userId, referralCode }));
-    } catch {
-      localStorage.setItem("bs_user", JSON.stringify(userData));
+    } else {
+      // Manual entry - insert without auth
+      await supabase.from("users").insert({
+        first_name: trimmedName,
+        google_id: null,
+        age: parsedAge,
+        city: trimmedCity,
+        referral_code: shortCode,
+      });
     }
 
     navigate("/home");

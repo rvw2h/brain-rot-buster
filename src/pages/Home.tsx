@@ -2,11 +2,8 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import BottomNav from "@/components/game/BottomNav";
 import GameTile from "@/components/game/GameTile";
-
-interface UserData {
-  name: string;
-  loggedIn: boolean;
-}
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 interface ScoreData {
   math?: number;
@@ -17,23 +14,16 @@ interface ScoreData {
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserData | null>(null);
+  const { profile } = useAuth();
   const [scores, setScores] = useState<ScoreData>({});
 
   useEffect(() => {
-    const raw = localStorage.getItem("bs_user");
-    if (!raw) {
-      navigate("/");
-      return;
-    }
-    setUser(JSON.parse(raw));
-
     const today = new Date().toISOString().split("T")[0];
     const scoresRaw = localStorage.getItem(`bs_scores_${today}`);
     if (scoresRaw) setScores(JSON.parse(scoresRaw));
-  }, [navigate]);
+  }, []);
 
-  if (!user) return null;
+  if (!profile) return null;
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
@@ -59,9 +49,9 @@ const HomePage = () => {
         <div className="flex justify-between items-center mb-5">
           <span className="font-sans text-[11px] text-muted-foreground">{dateStr}</span>
           <button
-            onClick={() => {
-              localStorage.removeItem("bs_user");
-              navigate("/");
+            onClick={async () => {
+              await supabase.auth.signOut();
+              navigate("/login");
             }}
             className="text-sm text-t-tertiary"
           >
@@ -71,7 +61,7 @@ const HomePage = () => {
 
         {/* Welcome */}
         <h1 className="font-display text-[22px] font-bold text-foreground mb-5">
-          {hasAnyScore ? `Welcome back, ${user.name}` : `Welcome, ${user.name} 👋`}
+          {hasAnyScore ? `Welcome back, ${profile.first_name}` : `Welcome, ${profile.first_name} 👋`}
         </h1>
 
         {/* Score card */}

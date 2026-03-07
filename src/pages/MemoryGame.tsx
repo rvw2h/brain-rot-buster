@@ -4,6 +4,9 @@ import { getWordsForSession, checkWord, calculateMemoryScore } from "@/lib/memor
 import TimerBar from "@/components/game/TimerBar";
 import QwertyPad from "@/components/game/QwertyPad";
 import confetti from "canvas-confetti";
+import { useAuth } from "@/contexts/AuthContext";
+import { persistGameSession } from "@/lib/gamePersistence";
+import { supabase } from "@/lib/supabase";
 
 type Phase = "pre" | "display" | "recall" | "result";
 
@@ -17,6 +20,7 @@ interface WrongChip {
 
 const MemoryGame = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [phase, setPhase] = useState<Phase>("pre");
   const [words, setWords] = useState<string[]>([]);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -27,6 +31,7 @@ const MemoryGame = () => {
   const [lastSessionScore, setLastSessionScore] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const wrongIdRef = useRef(0);
+  const gameStartRef = useRef<number | null>(null);
 
   const startGame = () => {
     // Read last session score
@@ -43,6 +48,7 @@ const MemoryGame = () => {
     setWrongChips([]);
     setTimeLeft(DISPLAY_TIME);
     setPhase("display");
+    gameStartRef.current = Date.now();
   };
 
   // Timer
@@ -78,12 +84,8 @@ const MemoryGame = () => {
         clearInterval(timerRef.current);
       }
     } else {
-      // Show wrong chip that fades out
       const id = ++wrongIdRef.current;
       setWrongChips((prev) => [...prev, { id, text: input.trim() }]);
-      setTimeout(() => {
-        setWrongChips((prev) => prev.filter((c) => c.id !== id));
-      }, 2000);
     }
     setInput("");
   }, [input, phase, words, recalled]);
@@ -118,7 +120,7 @@ const MemoryGame = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [phase, handleSubmit]);
 
-  // Save score + confetti
+  // Save score + confetti + Supabase persistence
   useEffect(() => {
     if (phase === "result") {
       const sc = calculateMemoryScore(recalled.size);
@@ -136,8 +138,40 @@ const MemoryGame = () => {
       if (lastSessionScore !== null && sc > lastSessionScore) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
+
+      const startedAtIso =
+        gameStartRef.current != null
+          ? new Date(gameStartRef.current).toISOString()
+          : new Date().toISOString();
+      const completedAtIso = new Date().toISOString();
+
+      void (async () => {
+        const sessionId = await persistGameSession({
+          gameType: "memory",
+          user: profile ?? null,
+          score: sc,
+          accuracyPct: accuracy,
+          startedAt: startedAtIso,
+          completedAt: completedAtIso,
+          metadata: {
+            totalWords: words.length,
+            recalledCount: recalled.size,
+            fuzzyCount,
+          },
+        });
+
+        if (sessionId) {
+          const recalledSet = new Set(recalled);
+          const rows = words.map((word) => ({
+            session_id: sessionId,
+            word,
+            was_recalled: recalledSet.has(word),
+          }));
+          await supabase.from("memory_session_words").insert(rows);
+        }
+      })();
     }
-  }, [phase, recalled, lastSessionScore]);
+  }, [phase, recalled, lastSessionScore, words.length, fuzzyCount, accuracy, profile]);
 
   const totalDuration = phase === "display" ? DISPLAY_TIME : RECALL_TIME;
   const timerPct = (timeLeft / totalDuration) * 100;
@@ -251,11 +285,11 @@ const MemoryGame = () => {
             {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
             {String(timeLeft % 60).padStart(2, "0")}
           </div>
-          <div className="flex-1 flex flex-wrap gap-1.5 content-start overflow-hidden">
+          <div className="flex-1 flex flex-col gap-1.5 items-start overflow-hidden">
             {words.map((w) => (
               <span
                 key={w}
-                className="font-display text-xs font-medium text-foreground py-0.5 px-1.5 bg-surface rounded"
+                className="font-display text-xs font-medium text-foreground py-1 px-2 bg-surface rounded self-stretch text-left"
               >
                 {w}
               </span>
@@ -288,11 +322,11 @@ const MemoryGame = () => {
             )}
           </div>
         </div>
-        <div className="flex-1 px-3 flex flex-wrap content-start gap-1 overflow-auto no-scrollbar">
+        <div className="flex-1 px-3 flex flex-wrap content-start gap-1.5 overflow-auto no-scrollbar">
           {Array.from(recalled).map((w) => (
             <span
               key={w}
-              className="inline-block py-0.5 px-2.5 rounded-full bg-[hsl(var(--game-green)/0.12)] border border-[hsl(var(--game-green)/0.2)] font-sans text-[11px] text-game-green animate-chip-pop"
+              className="inline-block py-1.5 px-4 rounded-full bg-[hsl(var(--game-green)/0.12)] border border-[hsl(var(--game-green)/0.2)] font-sans text-sm text-game-green animate-chip-pop"
             >
               {w}
             </span>
@@ -300,7 +334,12 @@ const MemoryGame = () => {
           {wrongChips.map((chip) => (
             <span
               key={chip.id}
-              className="inline-block py-0.5 px-2.5 rounded-full bg-[hsl(var(--game-red)/0.12)] border border-[hsl(var(--game-red)/0.2)] font-sans text-[11px] text-game-red animate-chip-pop opacity-70"
+              className="inline-block py-1.5 px-4 rounded-full font-sans text-sm animate-chip-pop"
+              style={{
+                background: "rgba(255,45,85,0.08)",
+                border: "1px solid rgba(255,45,85,0.2)",
+                color: "#FF2D55",
+              }}
             >
               {chip.text} ✗
             </span>

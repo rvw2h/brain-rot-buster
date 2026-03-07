@@ -4,6 +4,8 @@ import { generateQuestion, getLevelForQuestion, type MathQuestion } from "@/lib/
 import TimerBar from "@/components/game/TimerBar";
 import NumPad from "@/components/game/NumPad";
 import confetti from "canvas-confetti";
+import { useAuth } from "@/contexts/AuthContext";
+import { persistGameSession } from "@/lib/gamePersistence";
 
 type GamePhase = "pre" | "playing" | "result";
 type AnswerState = "idle" | "correct" | "wrong";
@@ -12,6 +14,7 @@ const GAME_DURATION = 120;
 
 const MathGame = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [phase, setPhase] = useState<GamePhase>("pre");
   const [timeLeft, setTimeLeft] = useState(GAME_DURATION);
   const [question, setQuestion] = useState<MathQuestion | null>(null);
@@ -25,6 +28,7 @@ const MathGame = () => {
   const questionStartRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const prevExpressionRef = useRef<string>("");
+  const gameStartRef = useRef<number | null>(null);
 
   const nextQuestion = useCallback(() => {
     const level = getLevelForQuestion(questionsAttempted + 1);
@@ -49,6 +53,8 @@ const MathGame = () => {
     const existing = JSON.parse(localStorage.getItem(key) || "{}");
     setLastSessionScore(existing.math || null);
 
+    prevExpressionRef.current = "";
+    gameStartRef.current = Date.now();
     setPhase("playing");
     setTimeLeft(GAME_DURATION);
     setQuestionsAttempted(0);
@@ -140,13 +146,14 @@ const MathGame = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [phase, handleSubmit, handleKey, input]);
 
-  // Save score on result + confetti
+  // Save score on result + confetti + Supabase persistence
   useEffect(() => {
     if (phase === "result" && score > 0) {
       const today = new Date().toISOString().split("T")[0];
       const key = `bs_scores_${today}`;
       const existing = JSON.parse(localStorage.getItem(key) || "{}");
-      const acc = questionsAttempted > 0 ? Math.round((correctAnswers / questionsAttempted) * 100) : 0;
+      const acc =
+        questionsAttempted > 0 ? Math.round((correctAnswers / questionsAttempted) * 100) : 0;
       if (!existing.math || existing.math < score) {
         existing.math = score;
         existing.mathAcc = acc;
@@ -160,8 +167,26 @@ const MathGame = () => {
       if (lastSessionScore !== null && score > lastSessionScore) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
+
+      const startedAtIso =
+        gameStartRef.current != null ? new Date(gameStartRef.current).toISOString() : new Date().toISOString();
+      const completedAtIso = new Date().toISOString();
+
+      void persistGameSession({
+        gameType: "math",
+        user: profile ?? null,
+        score,
+        accuracyPct: acc,
+        startedAt: startedAtIso,
+        completedAt: completedAtIso,
+        metadata: {
+          questionsAttempted,
+          correctAnswers,
+          durationSeconds: GAME_DURATION,
+        },
+      });
     }
-  }, [phase, score, questionsAttempted, correctAnswers, lastSessionScore]);
+  }, [phase, score, questionsAttempted, correctAnswers, lastSessionScore, profile]);
 
   // PRE-GAME
   if (phase === "pre") {

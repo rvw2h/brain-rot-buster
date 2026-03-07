@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { persistGameSession } from "@/lib/gamePersistence";
 
 const COLORS = [
   "#FF2D55", "#FF6B35", "#FFD60A", "#00F5A0", "#00C9FF",
@@ -8,9 +10,9 @@ const COLORS = [
 ];
 
 const BRUSH_SIZES = [
-  { label: "S", size: 4 },
-  { label: "M", size: 10 },
-  { label: "L", size: 20 },
+  { id: "small", size: 6, dot: 6 },
+  { id: "medium", size: 12, dot: 12 },
+  { id: "large", size: 20, dot: 20 },
 ];
 
 const OUTLINES = [
@@ -101,6 +103,7 @@ type Phase = "picker" | "canvas" | "result";
 
 const ColorGame = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [phase, setPhase] = useState<Phase>("picker");
   const [selectedImage, setSelectedImage] = useState(OUTLINES[0]);
   const [activeColor, setActiveColor] = useState(COLORS[0]);
@@ -255,6 +258,24 @@ const ColorGame = () => {
     // Delete auto-saved canvas
     localStorage.removeItem(`bs_canvas_${selectedImage.id}`);
 
+    const startedAtIso = startTime ? new Date(startTime).toISOString() : new Date().toISOString();
+    const completedAtIso = new Date().toISOString();
+
+    void persistGameSession({
+      gameType: "coloring",
+      user: profile ?? null,
+      score: sc,
+      accuracyPct: null,
+      startedAt: startedAtIso,
+      completedAt: completedAtIso,
+      metadata: {
+        outlineId: selectedImage.id,
+        outlineName: selectedImage.name,
+        percentColored: pct,
+        elapsedSeconds: elapsed,
+      },
+    });
+
     setPhase("result");
   };
 
@@ -264,7 +285,7 @@ const ColorGame = () => {
   // PICKER
   if (phase === "picker") {
     return (
-      <div className="flex flex-col min-h-screen p-5">
+      <div className="flex flex-col min-h-screen p-5 pb-24">
         <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start mb-4">
           ← Back
         </button>
@@ -306,7 +327,7 @@ const ColorGame = () => {
     const sc = existing.coloring || 0;
 
     return (
-      <div className="flex flex-col min-h-screen p-5">
+      <div className="flex flex-col min-h-screen p-5 pb-24">
         <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
           ←
         </button>
@@ -350,7 +371,7 @@ const ColorGame = () => {
 
   // CANVAS
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen pb-24">
       <div className="flex justify-between px-3.5 py-2.5 bg-background">
         <span className="font-sans text-[11px] text-muted-foreground">{selectedImage.name}</span>
       </div>
@@ -375,45 +396,10 @@ const ColorGame = () => {
       </div>
 
       {/* Toolbar */}
-      <div className="bg-surface p-2 px-2.5 border-t border-border/30">
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={undo}
-            className={`p-1 px-1.5 text-base ${strokes.length > 0 ? "text-muted-foreground" : "text-t-tertiary opacity-30"}`}
-          >
-            ↩
-          </button>
-
-          {/* Brush sizes */}
-          <div className="flex gap-1">
-            {BRUSH_SIZES.map((bs) => (
-              <button
-                key={bs.label}
-                onClick={() => setActiveBrushSize(bs)}
-                className={`w-7 h-7 rounded-md font-mono text-[10px] font-semibold transition-all ${
-                  activeBrushSize.label === bs.label && !isEraser
-                    ? "bg-game-red text-primary-foreground"
-                    : "bg-elevated text-muted-foreground"
-                }`}
-              >
-                {bs.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Eraser */}
-          <button
-            onClick={() => setIsEraser(!isEraser)}
-            className={`w-7 h-7 rounded-md font-mono text-[10px] transition-all ${
-              isEraser
-                ? "bg-game-red text-primary-foreground"
-                : "bg-elevated text-muted-foreground"
-            }`}
-          >
-            ⌫
-          </button>
-
-          <div className="flex-1 flex gap-1.5 overflow-x-auto no-scrollbar">
+      <div className="bg-[#161616] border-t border-border/30 fixed bottom-0 left-0 right-0">
+        <div className="max-w-md mx-auto px-3 py-2 space-y-2">
+          {/* Row 1: color palette, right-aligned */}
+          <div className="flex items-center justify-end gap-1.5 overflow-x-auto no-scrollbar">
             {COLORS.map((c) => (
               <button
                 key={c}
@@ -421,22 +407,79 @@ const ColorGame = () => {
                   setActiveColor(c);
                   setIsEraser(false);
                 }}
-                className="flex-shrink-0 w-[26px] h-[26px] rounded-full transition-all"
+                className="flex-shrink-0 w-7 h-7 rounded-full transition-all"
                 style={{
                   background: c,
-                  boxShadow: activeColor === c && !isEraser
-                    ? `0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--game-red))`
-                    : "none",
+                  boxShadow:
+                    activeColor === c && !isEraser
+                      ? "0 0 0 2px #161616, 0 0 0 4px #FF2D55"
+                      : "none",
                 }}
               />
             ))}
           </div>
-          <button
-            onClick={handleSubmit}
-            className="flex-shrink-0 bg-game-red rounded-md py-[7px] px-3.5 font-sans text-[11px] font-semibold text-primary-foreground"
-          >
-            Submit
-          </button>
+
+          {/* Row 2: tools */}
+          <div className="flex items-center justify-between gap-3">
+            {/* Undo on the left */}
+            <button
+              onClick={undo}
+              className={`p-1.5 text-base rounded-md ${
+                strokes.length > 0 ? "text-muted-foreground" : "text-t-tertiary opacity-30"
+              }`}
+            >
+              ↩
+            </button>
+
+            {/* Brush size circles in the center */}
+            <div className="flex items-center justify-center gap-3">
+              {BRUSH_SIZES.map((bs) => (
+                <button
+                  key={bs.id}
+                  onClick={() => {
+                    setActiveBrushSize(bs);
+                    setIsEraser(false);
+                  }}
+                  className="flex items-center justify-center w-8 h-8 rounded-full bg-[#1F1F1F]"
+                  style={{
+                    boxShadow:
+                      activeBrushSize.id === bs.id && !isEraser
+                        ? "0 0 0 2px #FF2D55"
+                        : "none",
+                  }}
+                >
+                  <span
+                    className="rounded-full bg-white block"
+                    style={{
+                      width: bs.dot,
+                      height: bs.dot,
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
+
+            {/* Eraser and Submit on the right */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsEraser(!isEraser)}
+                className="w-8 h-8 rounded-full flex items-center justify-center text-[12px]"
+                style={{
+                  backgroundColor: isEraser ? "#FF2D55" : "#1F1F1F",
+                  color: isEraser ? "#FFFFFF" : "#E5E5EA",
+                  boxShadow: isEraser ? "0 0 0 2px #FF2D55" : "none",
+                }}
+              >
+                ⌫
+              </button>
+              <button
+                onClick={handleSubmit}
+                className="flex-shrink-0 bg-game-red rounded-full py-2 px-4 font-sans text-[11px] font-semibold text-primary-foreground"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

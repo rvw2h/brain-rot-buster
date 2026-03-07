@@ -67,7 +67,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 
 export function getWordsForSession(userId: string = 'local', date?: string): string[] {
   const dateStr = date || new Date().toISOString().split('T')[0];
-  const seed = hashCode(`${userId}:${dateStr}`);
+  const seed = hashCode(`${userId}:${dateStr}:${Date.now()}`);
   const shuffled = seededShuffle(WORD_POOL, seed);
   const unique = [...new Set(shuffled)];
   return unique.slice(0, 50);
