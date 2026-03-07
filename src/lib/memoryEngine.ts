@@ -1,46 +1,37 @@
-// Memory Game Engine - Word Pool + Fuzzy Matching
+// Memory Game Engine - Indian Pop Culture Word Pool + Fuzzy Matching
 
 const WORD_POOL: string[] = [
-  // Animals (50)
-  "Tiger", "Falcon", "Otter", "Lemur", "Pangolin", "Eagle", "Dolphin", "Cobra",
-  "Rabbit", "Parrot", "Whale", "Jaguar", "Gecko", "Panda", "Bison", "Crane",
-  "Salmon", "Beetle", "Gorilla", "Cheetah", "Pelican", "Lobster", "Ferret", "Mantis",
-  "Condor", "Badger", "Iguana", "Moose", "Heron", "Viper", "Toucan", "Starfish",
-  "Walrus", "Gazelle", "Firefly", "Osprey", "Raccoon", "Hermit", "Penguin", "Buffalo",
-  "Macaw", "Quail", "Donkey", "Coyote", "Finch", "Marmot", "Kestrel", "Crab",
-  "Sparrow", "Panther",
-  // Objects (50)
-  "Clock", "Compass", "Lantern", "Hammer", "Envelope", "Candle", "Anchor", "Mirror",
-  "Blanket", "Feather", "Basket", "Whistle", "Paddle", "Funnel", "Ribbon", "Needle",
-  "Bucket", "Magnet", "Helmet", "Saddle", "Wrench", "Goggles", "Zipper", "Pillow",
-  "Crayon", "Shovel", "Thimble", "Button", "Marble", "Locket", "Shield", "Chisel",
-  "Carpet", "Socket", "Satchel", "Quiver", "Pliers", "Eraser", "Brooch", "Grater",
-  "Pendant", "Trowel", "Sandal", "Beacon", "Clamp", "Tripod", "Syringe", "Awning",
-  "Gasket", "Pulley",
-  // Places (50)
-  "Canyon", "Harbor", "Glacier", "Marsh", "Plateau", "Valley", "Summit", "Island",
-  "Forest", "Desert", "Meadow", "Cavern", "Lagoon", "Tundra", "Oasis", "Ravine",
-  "Steppe", "Volcano", "Fjord", "Reef", "Basin", "Ridge", "Prairie", "Grotto",
-  "Dunes", "Rapids", "Bluff", "Creek", "Delta", "Gorge", "Savanna", "Swamp",
-  "Thicket", "Cove", "Ruins", "Temple", "Bridge", "Market", "Garden", "Chapel",
-  "Citadel", "Tower", "Wharf", "Terrace", "Arcade", "Parlor", "Studio", "Balcony",
-  "Corridor", "Atrium",
-  // Actions (50)
-  "Climb", "Sketch", "Ferment", "Whisper", "Orbit", "Plunge", "Gather", "Ignite",
-  "Sculpt", "Wander", "Anchor", "Launch", "Polish", "Carve", "Sprint", "Juggle",
-  "Weave", "Absorb", "Ripple", "Tumble", "Glide", "Stitch", "Harvest", "Kindle",
-  "Mingle", "Ponder", "Rattle", "Fumble", "Squint", "Bellow", "Clatter", "Drizzle",
-  "Flutter", "Gurgle", "Hobble", "Jingle", "Linger", "Mumble", "Nestle", "Quiver",
-  "Rustle", "Shimmer", "Tremble", "Unravel", "Vanish", "Wobble", "Tangle", "Soar",
-  "Murmur", "Ripple",
-  // Abstract (50)
-  "Calm", "Trust", "Dread", "Wonder", "Tension", "Bliss", "Grief", "Valor",
-  "Chaos", "Grace", "Doubt", "Honor", "Fury", "Serenity", "Virtue", "Malice",
-  "Solace", "Vigor", "Wisdom", "Folly", "Courage", "Anguish", "Delight", "Sorrow",
-  "Triumph", "Despair", "Freedom", "Burden", "Passion", "Mercy", "Justice", "Envy",
-  "Pride", "Shame", "Clarity", "Mystic", "Spirit", "Ember", "Shadow", "Twilight",
-  "Zenith", "Cipher", "Riddle", "Mirage", "Frenzy", "Reverie", "Enigma", "Aether",
-  "Nexus", "Cosmos"
+  // Cricket
+  "Sachin", "Dhoni", "Virat", "Rohit", "Bumrah", "Jadeja", "Ashwin", "Rahul",
+  "Pant", "Shami", "Hardik", "Chahal", "Surya", "Ishan", "Rinku", "Kohli",
+  "Gayle", "ABD", "Yorker", "Googly", "Stumps", "Wicket", "Sixer", "Bails",
+  "Crease", "Duck", "Maiden", "Umpire", "Pitch", "Over",
+  // Bollywood
+  "SRK", "Alia", "Deepika", "Ranbir", "Salman", "Aamir", "Ranvir", "Akshay",
+  "Hrithik", "Katrina", "Kareena", "Jawan", "Animal", "Pushpa", "Sholay",
+  "Lagaan", "Dangal", "DDLJ", "Gadar", "Rocky", "Kalki", "Tiger", "Stree",
+  "Kabir", "Munna", "Singham", "Golmaal", "Dhoom", "Sultan", "War",
+  // F1 & Racing  
+  "Max", "Lewis", "Lando", "Carlos", "Leclerc", "Checo", "Oscar", "Alonso",
+  "DRS", "Apex", "Stint", "Grid", "Pitstop", "Slicks", "Halo", "Redbull",
+  // Food
+  "Biryani", "Samosa", "Paneer", "Chai", "Dosa", "Idli", "Roti", "Lassi",
+  "Gulab", "Kulfi", "Jalebi", "Chaat", "Pakora", "Raita", "Naan", "Masala",
+  "Ladoo", "Kheer", "Pulao", "Vada", "Chole", "Poha", "Upma", "Bhaji",
+  // Festivals
+  "Diwali", "Holi", "Eid", "Onam", "Lohri", "Pongal", "Navami", "Rakhi",
+  "Durga", "Ganesh", "Basant", "Vishu", "Teej", "Makar", "Baisakhi",
+  // Cities
+  "Mumbai", "Delhi", "Pune", "Goa", "Jaipur", "Kochi", "Surat", "Agra",
+  "Shimla", "Varanasi", "Mysore", "Lucknow", "Bhopal", "Patna", "Indore",
+  "Nagpur", "Ranchi", "Vizag", "Madras", "Bombay",
+  // Slang & Pop Culture
+  "Jugaad", "Yaar", "Bindaas", "Desi", "Swag", "Vibe", "Chill", "Bruh",
+  "Slay", "Lit", "Drip", "Fire", "GOAT", "Clutch", "Sigma", "Rizz",
+  "Flex", "Ghosted", "Ship", "Stan", "Ratio", "Salty", "Based", "Mood",
+  // Abstract
+  "Karma", "Dharma", "Mantra", "Zen", "Guru", "Yoga", "Namaste", "Shakti",
+  "Maya", "Moksha", "Atman", "Bhakti", "Tantra", "Sutra", "Raga",
 ];
 
 // Simple hash function for deterministic seeding
@@ -49,7 +40,7 @@ function hashCode(str: string): number {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
     hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32-bit integer
+    hash = hash & hash;
   }
   return Math.abs(hash);
 }
@@ -78,7 +69,6 @@ export function getWordsForSession(userId: string = 'local', date?: string): str
   const dateStr = date || new Date().toISOString().split('T')[0];
   const seed = hashCode(`${userId}:${dateStr}`);
   const shuffled = seededShuffle(WORD_POOL, seed);
-  // Remove duplicates and take 50
   const unique = [...new Set(shuffled)];
   return unique.slice(0, 50);
 }
@@ -117,13 +107,11 @@ export function checkWord(input: string, targetList: string[], alreadyRecalled: 
     const target = word.toLowerCase();
     const distance = levenshtein(normalized, target);
     
-    // Short word protection: exact match only for words ≤ 3 chars
     if (target.length <= 3) {
       if (distance === 0) return { match: true, word, fuzzy: false };
       continue;
     }
     
-    // Accept if distance ≤ 2
     if (distance <= 2) {
       return { match: true, word, fuzzy: distance > 0 };
     }

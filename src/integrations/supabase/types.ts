@@ -96,6 +96,35 @@ export type Database = {
           },
         ]
       }
+      memory_session_words: {
+        Row: {
+          id: string
+          session_id: string | null
+          was_recalled: boolean | null
+          word: string
+        }
+        Insert: {
+          id?: string
+          session_id?: string | null
+          was_recalled?: boolean | null
+          word: string
+        }
+        Update: {
+          id?: string
+          session_id?: string | null
+          was_recalled?: boolean | null
+          word?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "memory_session_words_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sessions: {
         Row: {
           accuracy_pct: number | null
@@ -185,24 +214,36 @@ export type Database = {
           city: string | null
           created_at: string | null
           first_name: string
-          google_id: string
+          google_id: string | null
           id: string
+          last_coloring_score: number | null
+          last_math_score: number | null
+          last_memory_score: number | null
+          referral_code: string | null
         }
         Insert: {
           age?: number | null
           city?: string | null
           created_at?: string | null
           first_name: string
-          google_id: string
+          google_id?: string | null
           id?: string
+          last_coloring_score?: number | null
+          last_math_score?: number | null
+          last_memory_score?: number | null
+          referral_code?: string | null
         }
         Update: {
           age?: number | null
           city?: string | null
           created_at?: string | null
           first_name?: string
-          google_id?: string
+          google_id?: string | null
           id?: string
+          last_coloring_score?: number | null
+          last_math_score?: number | null
+          last_memory_score?: number | null
+          referral_code?: string | null
         }
         Relationships: []
       }

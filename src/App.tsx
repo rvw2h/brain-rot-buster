@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Login from "./pages/Login";
 import Onboarding from "./pages/Onboarding";
 import Home from "./pages/Home";
@@ -11,6 +11,8 @@ import MemoryGame from "./pages/MemoryGame";
 import ColorGame from "./pages/ColorGame";
 import Leaderboard from "./pages/Leaderboard";
 import History from "./pages/History";
+import Profile from "./pages/Profile";
+import MemoryWords from "./pages/MemoryWords";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,9 +30,11 @@ const App = () => (
             <Route path="/home" element={<Home />} />
             <Route path="/math" element={<MathGame />} />
             <Route path="/memory" element={<MemoryGame />} />
+            <Route path="/memory/words" element={<MemoryWords />} />
             <Route path="/color" element={<ColorGame />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/history" element={<History />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </div>

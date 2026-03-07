@@ -1,4 +1,4 @@
-import { Home, BarChart3, Calendar } from "lucide-react";
+import { Home, Calendar, User } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const BottomNav = () => {
@@ -6,9 +6,9 @@ const BottomNav = () => {
   const location = useLocation();
 
   const tabs = [
-    { icon: Home, path: "/home", label: "Home" },
-    { icon: BarChart3, path: "/leaderboard", label: "Board" },
-    { icon: Calendar, path: "/history", label: "History" },
+    { icon: Home, path: "/home" },
+    { icon: Calendar, path: "/history" },
+    { icon: User, path: "/profile" },
   ];
 
   return (

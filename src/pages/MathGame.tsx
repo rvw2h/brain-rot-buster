@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { generateQuestion, getLevelForQuestion, type MathQuestion } from "@/lib/mathEngine";
 import TimerBar from "@/components/game/TimerBar";
 import NumPad from "@/components/game/NumPad";
+import confetti from "canvas-confetti";
 
 type GamePhase = "pre" | "playing" | "result";
 type AnswerState = "idle" | "correct" | "wrong";
@@ -20,7 +21,7 @@ const MathGame = () => {
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [score, setScore] = useState(0);
   const [disabled, setDisabled] = useState(false);
-  const [revealAnswer, setRevealAnswer] = useState<number | null>(null);
+  const [lastSessionScore, setLastSessionScore] = useState<number | null>(null);
   const questionStartRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const prevExpressionRef = useRef<string>("");
@@ -38,11 +39,16 @@ const MathGame = () => {
     setInput("");
     setAnswerState("idle");
     setDisabled(false);
-    setRevealAnswer(null);
     questionStartRef.current = Date.now();
   }, [questionsAttempted]);
 
   const startGame = () => {
+    // Read last session score before starting
+    const today = new Date().toISOString().split("T")[0];
+    const key = `bs_scores_${today}`;
+    const existing = JSON.parse(localStorage.getItem(key) || "{}");
+    setLastSessionScore(existing.math || null);
+
     setPhase("playing");
     setTimeLeft(GAME_DURATION);
     setQuestionsAttempted(0);
@@ -72,28 +78,35 @@ const MathGame = () => {
     const userAnswer = parseInt(input);
     if (isNaN(userAnswer)) return;
 
-    setDisabled(true);
     setQuestionsAttempted((p) => p + 1);
 
     const timeTaken = (Date.now() - questionStartRef.current) / 1000;
 
     if (userAnswer === question.answer) {
+      setDisabled(true);
       setAnswerState("correct");
       const pts = 10 + (timeTaken < 5 ? 5 : 0);
       setCorrectAnswers((p) => p + 1);
       setScore((p) => p + pts);
       setTimeout(() => {
         nextQuestion();
-        setQuestionsAttempted((p) => p); // force re-render for level
       }, 300);
     } else {
+      // Wrong: shake, stay on same question, let user retry
       setAnswerState("wrong");
-      setRevealAnswer(question.answer);
-      setTimeout(() => {
-        nextQuestion();
-      }, 800);
+      setInput("");
+      setTimeout(() => setAnswerState("idle"), 600);
     }
   }, [question, disabled, input, nextQuestion]);
+
+  // Auto-submit when input matches answer
+  useEffect(() => {
+    if (!question || disabled || !input || answerState !== "idle") return;
+    const userAnswer = parseInt(input);
+    if (!isNaN(userAnswer) && userAnswer === question.answer) {
+      handleSubmit();
+    }
+  }, [input, question, disabled, answerState, handleSubmit]);
 
   const handleKey = useCallback(
     (key: string) => {
@@ -127,7 +140,7 @@ const MathGame = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [phase, handleSubmit, handleKey, input]);
 
-  // Save score on result
+  // Save score on result + confetti
   useEffect(() => {
     if (phase === "result" && score > 0) {
       const today = new Date().toISOString().split("T")[0];
@@ -139,12 +152,16 @@ const MathGame = () => {
         existing.mathAcc = acc;
         localStorage.setItem(key, JSON.stringify(existing));
       }
-      // Update best
       const best = parseInt(localStorage.getItem("bs_best") || "0");
       const total = (existing.math || 0) + (existing.memory || 0) + (existing.coloring || 0);
       if (total > best) localStorage.setItem("bs_best", String(total));
+
+      // Fire confetti if improved
+      if (lastSessionScore !== null && score > lastSessionScore) {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
     }
-  }, [phase, score, questionsAttempted, correctAnswers]);
+  }, [phase, score, questionsAttempted, correctAnswers, lastSessionScore]);
 
   // PRE-GAME
   if (phase === "pre") {
@@ -178,6 +195,8 @@ const MathGame = () => {
   // RESULT
   if (phase === "result") {
     const accuracy = questionsAttempted > 0 ? Math.round((correctAnswers / questionsAttempted) * 100) : 0;
+    const delta = lastSessionScore !== null ? score - lastSessionScore : null;
+
     return (
       <div className="flex flex-col min-h-screen p-5 pt-5">
         <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
@@ -189,6 +208,11 @@ const MathGame = () => {
         <div className="flex-1 flex flex-col items-center justify-center">
           <div className="font-display text-[60px] font-bold text-game-red leading-none">{score}</div>
           <div className="font-sans text-sm text-muted-foreground mt-1">points</div>
+          {delta !== null && delta !== 0 && (
+            <div className={`font-sans text-xs mt-1 ${delta > 0 ? "text-game-green" : "text-game-red"}`}>
+              {delta > 0 ? `↑ +${delta}` : `↓ ${delta}`} from last
+            </div>
+          )}
           <div className="flex gap-0 mt-7 w-full">
             {[
               [String(questionsAttempted), "attempted"],
@@ -229,21 +253,18 @@ const MathGame = () => {
     <div className="flex flex-col min-h-screen">
       <TimerBar percentage={timerPct} />
       <div className="flex-1 flex flex-col">
-        {/* Stats */}
         <div className="flex justify-end px-4 py-2">
           <span className="font-sans text-[11px] text-muted-foreground">
             {questionsAttempted} ans · {correctAnswers} ✓
           </span>
         </div>
 
-        {/* Expression */}
         <div className="flex-1 flex items-center justify-center px-4">
           <div className="font-mono text-[26px] font-semibold text-foreground animate-fade-in-up">
             {question?.expression}
           </div>
         </div>
 
-        {/* Input */}
         <div className="px-6 pb-3">
           <div className="flex items-center gap-2">
             <div
@@ -265,14 +286,6 @@ const MathGame = () => {
               <span className="text-game-green text-lg">✓</span>
             )}
           </div>
-          {answerState === "correct" && (
-            <p className="font-sans text-[10px] text-game-green mt-1">Auto-advancing...</p>
-          )}
-          {answerState === "wrong" && revealAnswer !== null && (
-            <p className="font-sans text-[11px] text-muted-foreground mt-1.5">
-              Answer was {revealAnswer} · advancing in 0.8s
-            </p>
-          )}
         </div>
 
         <NumPad onKey={handleKey} disabled={disabled} />
