@@ -44,6 +44,23 @@ function hasChainedDivision(node: ASTNode): boolean {
   return hasChainedDivision(node.left!) || hasChainedDivision(node.right!);
 }
 
+function hasInvalidMulDivPair(node: ASTNode): boolean {
+  if (node.type === 'number') return false;
+
+  if ((node.op === '×' || node.op === '÷') && node.left && node.right) {
+    if (node.left.type === 'number' && node.right.type === 'number') {
+      const a = node.left.value ?? 0;
+      const b = node.right.value ?? 0;
+      const isTwoDigit = (n: number) => n >= 10 && n <= 30;
+      if (isTwoDigit(a) && isTwoDigit(b)) {
+        return true;
+      }
+    }
+  }
+
+  return hasInvalidMulDivPair(node.left) || hasInvalidMulDivPair(node.right);
+}
+
 function buildAST(terms: number, ops: Operator[], numRange: [number, number]): ASTNode {
   if (terms === 1) {
     return { type: 'number', value: randInt(numRange[0], numRange[1]) };
@@ -124,7 +141,8 @@ export function generateQuestion(level: number): MathQuestion {
       result <= 9999 &&
       countOps(tree, '÷') <= 1 &&
       countOps(tree, '×') <= 2 &&
-      !hasChainedDivision(tree)
+      !hasChainedDivision(tree) &&
+      !hasInvalidMulDivPair(tree)
     ) {
       const expression = formatAST(tree);
       return { expression, answer: result, level };

@@ -14,6 +14,8 @@ import History from "./pages/History";
 import Profile from "./pages/Profile";
 import MemoryWords from "./pages/MemoryWords";
 import NotFound from "./pages/NotFound";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -23,21 +25,80 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <div className="max-w-md mx-auto min-h-screen bg-background relative shadow-2xl">
-          <Routes>
-            <Route path="/" element={<Login />} />
-            <Route path="/onboarding" element={<Onboarding />} />
-            <Route path="/home" element={<Home />} />
-            <Route path="/math" element={<MathGame />} />
-            <Route path="/memory" element={<MemoryGame />} />
-            <Route path="/memory/words" element={<MemoryWords />} />
-            <Route path="/color" element={<ColorGame />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </div>
+        <AuthProvider>
+          <div className="max-w-md mx-auto min-h-screen bg-background relative shadow-2xl">
+            <Routes>
+              <Route path="/" element={<Login />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/onboarding" element={<Onboarding />} />
+              <Route
+                path="/home"
+                element={
+                  <ProtectedRoute>
+                    <Home />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/math"
+                element={
+                  <ProtectedRoute>
+                    <MathGame />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/memory"
+                element={
+                  <ProtectedRoute>
+                    <MemoryGame />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/memory/words"
+                element={
+                  <ProtectedRoute>
+                    <MemoryWords />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/color"
+                element={
+                  <ProtectedRoute>
+                    <ColorGame />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/leaderboard"
+                element={
+                  <ProtectedRoute>
+                    <Leaderboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/history"
+                element={
+                  <ProtectedRoute>
+                    <History />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </div>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

@@ -1,64 +1,52 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Copy, Check } from "lucide-react";
 import BottomNav from "@/components/game/BottomNav";
-
-interface UserData {
-  name: string;
-  age?: number | null;
-  city?: string | null;
-  referralCode?: string;
-  loggedIn: boolean;
-}
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [user, setUser] = useState<UserData | null>(null);
+  const { profile, setProfile } = useAuth();
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState("");
+  const [nameInput, setNameInput] = useState(profile?.first_name ?? "");
   const [nameError, setNameError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    const raw = localStorage.getItem("bs_user");
-    if (!raw) {
-      navigate("/");
-      return;
-    }
-    const parsed = JSON.parse(raw);
-    setUser(parsed);
-    setNameInput(parsed.name || "");
-  }, [navigate]);
+  if (!profile) return null;
 
-  if (!user) return null;
+  const fullReferralUrl = profile.referral_code
+    ? `https://brainsharp.app/join?ref=${profile.referral_code}`
+    : "";
 
-  const referralCode = user.referralCode || `BRAIN-${(user.name || "USER").slice(0, 4).toUpperCase().padEnd(4, "X")}00`;
-
-  const handleNameSave = () => {
+  const handleNameSave = async () => {
     const trimmed = nameInput.trim();
     if (trimmed.length < 2 || trimmed.length > 10 || !/^[a-zA-Z]+$/.test(trimmed)) {
       setNameError("2-10 letters only");
       return;
     }
     setNameError("");
-    const updated = { ...user, name: trimmed };
-    setUser(updated);
-    localStorage.setItem("bs_user", JSON.stringify(updated));
+    await supabase
+      .from("users")
+      .update({ first_name: trimmed })
+      .eq("id", profile.id);
+    setProfile({ ...profile, first_name: trimmed });
     setEditingName(false);
   };
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(referralCode);
+    if (!fullReferralUrl) return;
+    navigator.clipboard.writeText(fullReferralUrl);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSignOut = () => {
-    localStorage.removeItem("bs_user");
-    navigate("/");
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    navigate("/login");
   };
 
-  const subtitle = [user.city, user.age ? `${user.age}y` : null].filter(Boolean).join(" · ");
+  const subtitle = [profile.city, profile.age ? `${profile.age}y` : null].filter(Boolean).join(" · ");
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -67,7 +55,7 @@ const Profile = () => {
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-elevated flex items-center justify-center mb-3">
             <span className="font-display text-2xl font-bold text-muted-foreground">
-              {user.name?.[0]?.toUpperCase() || "?"}
+              {profile.first_name?.[0]?.toUpperCase() || "?"}
             </span>
           </div>
 
@@ -86,7 +74,7 @@ const Profile = () => {
             </div>
           ) : (
             <button onClick={() => setEditingName(true)}>
-              <h2 className="font-display text-xl font-semibold text-foreground">{user.name}</h2>
+              <h2 className="font-display text-xl font-semibold text-foreground">{profile.first_name}</h2>
             </button>
           )}
 
@@ -98,16 +86,35 @@ const Profile = () => {
         {/* Referral Code */}
         <div className="bg-surface rounded-lg p-4 mb-4 shadow-[0_0_0_1px_hsl(var(--border)/0.4)]">
           <p className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2">
-            Referral Code
+            Referral Link
           </p>
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-sm font-semibold text-foreground flex-1">
-              {referralCode}
-            </span>
-            <button onClick={handleCopy} className="text-muted-foreground hover:text-foreground transition-colors">
-              {copied ? <Check size={16} className="text-game-green" /> : <Copy size={16} />}
-            </button>
-          </div>
+          {fullReferralUrl ? (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-xs font-semibold text-foreground flex-1 truncate">
+                {fullReferralUrl}
+              </span>
+              <button
+                onClick={handleCopy}
+                className="inline-flex items-center gap-1 rounded-full border border-border/50 px-3 py-1 text-[11px] font-sans text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
+              >
+                {copied ? (
+                  <>
+                    <Check size={14} className="text-game-green" />
+                    <span>Copied ✓</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} />
+                    <span>Copy link</span>
+                  </>
+                )}
+              </button>
+            </div>
+          ) : (
+            <p className="font-sans text-[11px] text-muted-foreground">
+              Your referral link will appear here after onboarding.
+            </p>
+          )}
         </div>
 
         {/* Follow Us */}
@@ -117,7 +124,7 @@ const Profile = () => {
           </p>
           <div className="flex gap-2">
             <a
-              href="https://linkedin.com/company/brainsharp"
+              href="https://www.linkedin.com/in/rahulverma31/"
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 bg-elevated rounded-lg p-3 text-center font-sans text-xs text-foreground hover:bg-border/30 transition-colors"
@@ -125,7 +132,7 @@ const Profile = () => {
               LinkedIn
             </a>
             <a
-              href="https://twitter.com/brainsharp"
+              href="https://x.com/yaaarrv"
               target="_blank"
               rel="noopener noreferrer"
               className="flex-1 bg-elevated rounded-lg p-3 text-center font-sans text-xs text-foreground hover:bg-border/30 transition-colors"
