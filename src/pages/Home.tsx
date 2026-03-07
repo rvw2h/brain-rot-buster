@@ -14,7 +14,7 @@ interface ScoreData {
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { session, profile, manualUser, setManualUser } = useAuth();
   const [scores, setScores] = useState<ScoreData>({});
 
   useEffect(() => {
@@ -23,11 +23,12 @@ const HomePage = () => {
     if (scoresRaw) setScores(JSON.parse(scoresRaw));
   }, []);
 
-  if (!profile) return null;
+  if (!profile && !manualUser) return null;
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-  const hasAnyScore = scores.math !== undefined || scores.memory !== undefined || scores.coloring !== undefined;
+  const hasAnyScore =
+    scores.math !== undefined || scores.memory !== undefined || scores.coloring !== undefined;
   const totalToday = (scores.math || 0) + (scores.memory || 0) + (scores.coloring || 0);
 
   // Get yesterday's scores
@@ -42,6 +43,8 @@ const HomePage = () => {
   const bestRaw = localStorage.getItem("bs_best");
   const best = bestRaw ? parseInt(bestRaw) : totalToday;
 
+  const displayName = profile?.first_name ?? manualUser?.first_name ?? "Friend";
+
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex-1 p-4 px-[18px] flex flex-col">
@@ -50,7 +53,12 @@ const HomePage = () => {
           <span className="font-sans text-[11px] text-muted-foreground">{dateStr}</span>
           <button
             onClick={async () => {
-              await supabase.auth.signOut();
+              if (session) {
+                await supabase.auth.signOut();
+              } else {
+                localStorage.removeItem("bs_manual_user");
+                setManualUser(null);
+              }
               navigate("/login");
             }}
             className="text-sm text-t-tertiary"
@@ -61,7 +69,7 @@ const HomePage = () => {
 
         {/* Welcome */}
         <h1 className="font-display text-[22px] font-bold text-foreground mb-5">
-          {hasAnyScore ? `Welcome back, ${profile.first_name}` : `Welcome, ${profile.first_name} 👋`}
+          {hasAnyScore ? `Welcome back, ${displayName}` : `Welcome, ${displayName} 👋`}
         </h1>
 
         {/* Score card */}

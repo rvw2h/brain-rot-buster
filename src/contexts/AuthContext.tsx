@@ -3,11 +3,19 @@ import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/integrations/supabase/types";
 
+interface ManualUser {
+  first_name: string;
+  age: number | null;
+  city: string | null;
+}
+
 interface AuthContextValue {
   session: Session | null;
   user: User | null;
   profile: Tables<"users"> | null;
   setProfile: (profile: Tables<"users"> | null) => void;
+  manualUser: ManualUser | null;
+  setManualUser: (user: ManualUser | null) => void;
   loading: boolean;
 }
 
@@ -18,6 +26,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Tables<"users"> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [manualUser, setManualUser] = useState<ManualUser | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,6 +36,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!isMounted) return;
       setSession(data.session);
       setUser(data.session?.user ?? null);
+
+      if (!data.session) {
+        const stored = localStorage.getItem("bs_manual_user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as ManualUser;
+            setManualUser(parsed);
+          } catch {
+            setManualUser(null);
+          }
+        }
+      }
+
       setLoading(false);
     };
 
@@ -38,6 +60,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       setProfile(null);
+
+      if (newSession) {
+        setManualUser(null);
+        localStorage.removeItem("bs_manual_user");
+      } else {
+        const stored = localStorage.getItem("bs_manual_user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as ManualUser;
+            setManualUser(parsed);
+          } catch {
+            setManualUser(null);
+          }
+        }
+      }
     });
 
     return () => {
@@ -80,6 +117,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         profile,
         setProfile,
+        manualUser,
+        setManualUser,
         loading,
       }}
     >
