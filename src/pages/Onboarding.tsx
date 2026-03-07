@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Onboarding = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const method = searchParams.get("method") || "manual";
+  const { setManualUser } = useAuth();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -78,14 +80,26 @@ const Onboarding = () => {
           );
       }
     } else {
-      // Manual entry - insert without auth
-      await supabase.from("users").insert({
+      // Manual entry - insert without auth, but still allow app access via local profile
+      try {
+        await supabase.from("users").insert({
+          first_name: trimmedName,
+          google_id: null,
+          age: parsedAge,
+          city: trimmedCity,
+          referral_code: shortCode,
+        });
+      } catch {
+        // Ignore insert failure for manual users
+      }
+
+      const manualProfile = {
         first_name: trimmedName,
-        google_id: null,
         age: parsedAge,
         city: trimmedCity,
-        referral_code: shortCode,
-      });
+      };
+      localStorage.setItem("bs_manual_user", JSON.stringify(manualProfile));
+      setManualUser(manualProfile);
     }
 
     navigate("/home");

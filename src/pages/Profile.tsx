@@ -7,17 +7,26 @@ import { supabase } from "@/lib/supabase";
 
 const Profile = () => {
   const navigate = useNavigate();
-  const { profile, setProfile } = useAuth();
+  const { session, profile, setProfile, manualUser, setManualUser } = useAuth();
+
+  const initialName = profile?.first_name ?? manualUser?.first_name ?? "";
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(profile?.first_name ?? "");
+  const [nameInput, setNameInput] = useState(initialName);
   const [nameError, setNameError] = useState("");
   const [copied, setCopied] = useState(false);
 
-  if (!profile) return null;
+  if (!profile && !manualUser) return null;
 
-  const fullReferralUrl = profile.referral_code
-    ? `https://brainsharp.app/join?ref=${profile.referral_code}`
-    : "";
+  const isSupabaseUser = !!profile;
+  const displayName = profile?.first_name ?? manualUser?.first_name ?? "";
+  const subtitleParts = [
+    profile?.city ?? manualUser?.city ?? null,
+    profile?.age ?? manualUser?.age ? `${profile?.age ?? manualUser?.age}y` : null,
+  ].filter(Boolean) as string[];
+  const subtitle = subtitleParts.join(" · ");
+
+  const fullReferralUrl =
+    profile?.referral_code ? `https://brainsharp.app/join?ref=${profile.referral_code}` : "";
 
   const handleNameSave = async () => {
     const trimmed = nameInput.trim();
@@ -26,11 +35,16 @@ const Profile = () => {
       return;
     }
     setNameError("");
-    await supabase
-      .from("users")
-      .update({ first_name: trimmed })
-      .eq("id", profile.id);
-    setProfile({ ...profile, first_name: trimmed });
+
+    if (profile) {
+      await supabase.from("users").update({ first_name: trimmed }).eq("id", profile.id);
+      setProfile({ ...profile, first_name: trimmed });
+    } else if (manualUser) {
+      const updated = { ...manualUser, first_name: trimmed };
+      localStorage.setItem("bs_manual_user", JSON.stringify(updated));
+      setManualUser(updated);
+    }
+
     setEditingName(false);
   };
 
@@ -42,11 +56,14 @@ const Profile = () => {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    if (session) {
+      await supabase.auth.signOut();
+    } else {
+      localStorage.removeItem("bs_manual_user");
+      setManualUser(null);
+    }
     navigate("/login");
   };
-
-  const subtitle = [profile.city, profile.age ? `${profile.age}y` : null].filter(Boolean).join(" · ");
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -55,7 +72,7 @@ const Profile = () => {
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 rounded-full bg-elevated flex items-center justify-center mb-3">
             <span className="font-display text-2xl font-bold text-muted-foreground">
-              {profile.first_name?.[0]?.toUpperCase() || "?"}
+              {displayName?.[0]?.toUpperCase() || "?"}
             </span>
           </div>
 
@@ -74,7 +91,7 @@ const Profile = () => {
             </div>
           ) : (
             <button onClick={() => setEditingName(true)}>
-              <h2 className="font-display text-xl font-semibold text-foreground">{profile.first_name}</h2>
+              <h2 className="font-display text-xl font-semibold text-foreground">{displayName}</h2>
             </button>
           )}
 
@@ -83,12 +100,12 @@ const Profile = () => {
           )}
         </div>
 
-        {/* Referral Code */}
+        {/* Referral / Info */}
         <div className="bg-surface rounded-lg p-4 mb-4 shadow-[0_0_0_1px_hsl(var(--border)/0.4)]">
           <p className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2">
-            Referral Link
+            Referral
           </p>
-          {fullReferralUrl ? (
+          {isSupabaseUser && fullReferralUrl ? (
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs font-semibold text-foreground flex-1 truncate">
                 {fullReferralUrl}
@@ -112,7 +129,7 @@ const Profile = () => {
             </div>
           ) : (
             <p className="font-sans text-[11px] text-muted-foreground">
-              Your referral link will appear here after onboarding.
+              Referral link is available when you sign in with Google.
             </p>
           )}
         </div>
