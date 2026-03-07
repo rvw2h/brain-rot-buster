@@ -48,13 +48,11 @@ function hasInvalidMulDivPair(node: ASTNode | undefined): boolean {
   if (!node || node.type === 'number') return false;
 
   if ((node.op === '×' || node.op === '÷') && node.left && node.right) {
-    if (node.left.type === 'number' && node.right.type === 'number') {
-      const a = node.left.value ?? 0;
-      const b = node.right.value ?? 0;
-      const isTwoDigit = (n: number) => n >= 10 && n <= 30;
-      if (isTwoDigit(a) && isTwoDigit(b)) {
-        return true;
-      }
+    const leftVal = evaluate(node.left);
+    const rightVal = evaluate(node.right);
+    const isTwoDigit = (n: number) => Number.isInteger(n) && n >= 10 && n <= 30;
+    if (isTwoDigit(leftVal) && isTwoDigit(rightVal)) {
+      return true;
     }
   }
 

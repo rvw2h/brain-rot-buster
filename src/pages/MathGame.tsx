@@ -25,6 +25,7 @@ const MathGame = () => {
   const [score, setScore] = useState(0);
   const [disabled, setDisabled] = useState(false);
   const [lastSessionScore, setLastSessionScore] = useState<number | null>(null);
+  const wrongAttemptsRef = useRef(0);
   const questionStartRef = useRef<number>(0);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const prevExpressionRef = useRef<string>("");
@@ -44,6 +45,7 @@ const MathGame = () => {
     setAnswerState("idle");
     setDisabled(false);
     questionStartRef.current = Date.now();
+    wrongAttemptsRef.current = 0;
   }, [questionsAttempted]);
 
   const startGame = () => {
@@ -98,10 +100,21 @@ const MathGame = () => {
         nextQuestion();
       }, 300);
     } else {
-      // Wrong: shake, stay on same question, let user retry
-      setAnswerState("wrong");
-      setInput("");
-      setTimeout(() => setAnswerState("idle"), 600);
+      // Wrong answer: allow up to 2 attempts, then auto-skip to next question
+      wrongAttemptsRef.current += 1;
+      if (wrongAttemptsRef.current >= 2) {
+        wrongAttemptsRef.current = 0;
+        setAnswerState("wrong");
+        setInput("");
+        setTimeout(() => {
+          setAnswerState("idle");
+          nextQuestion();
+        }, 400);
+      } else {
+        setAnswerState("wrong");
+        setInput("");
+        setTimeout(() => setAnswerState("idle"), 600);
+      }
     }
   }, [question, disabled, input, nextQuestion]);
 

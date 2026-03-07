@@ -120,6 +120,9 @@ const MemoryGame = () => {
     return () => window.removeEventListener("keydown", handler);
   }, [phase, handleSubmit]);
 
+  const score = calculateMemoryScore(recalled.size);
+  const accuracy = words.length > 0 ? Math.round((recalled.size / words.length) * 100) : 0;
+
   // Save score + confetti + Supabase persistence
   useEffect(() => {
     if (phase === "result") {
@@ -175,8 +178,6 @@ const MemoryGame = () => {
 
   const totalDuration = phase === "display" ? DISPLAY_TIME : RECALL_TIME;
   const timerPct = (timeLeft / totalDuration) * 100;
-  const score = calculateMemoryScore(recalled.size);
-  const accuracy = words.length > 0 ? Math.round((recalled.size / words.length) * 100) : 0;
 
   // PRE
   if (phase === "pre") {
