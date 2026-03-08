@@ -16,17 +16,40 @@ const Onboarding = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Pre-populate from Google session
+  // Check session and user existence on mount
   useEffect(() => {
-    if (method === "google") {
-      supabase.auth.getSession().then(({ data }) => {
-        const user = data.session?.user;
-        if (user?.user_metadata?.full_name) {
+    const handleAuthCheck = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      // If Google redirect but no session, go back to login
+      if (method === "google" && !user) {
+        navigate("/login");
+        return;
+      }
+
+      if (user) {
+        // If user already exists in DB, skip onboarding
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("google_id", user.id)
+          .maybeSingle();
+
+        if (existingUser) {
+          navigate("/home");
+          return;
+        }
+
+        // Pre-fill name from Google metadata
+        if (method === "google" && user.user_metadata?.full_name) {
           setName(user.user_metadata.full_name.split(" ")[0]);
         }
-      });
-    }
-  }, [method]);
+      }
+    };
+
+    handleAuthCheck();
+  }, [method, navigate]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
