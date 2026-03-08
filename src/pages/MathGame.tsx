@@ -173,7 +173,7 @@ const MathGame = () => {
         localStorage.setItem(key, JSON.stringify(existing));
       }
       const best = parseInt(localStorage.getItem("bs_best") || "0");
-      const total = (existing.math || 0) + (existing.memory || 0) + (existing.coloring || 0);
+      const total = (existing.math || 0) + (existing.memory || 0);
       if (total > best) localStorage.setItem("bs_best", String(total));
 
       // Fire confetti if improved
@@ -204,7 +204,7 @@ const MathGame = () => {
   // PRE-GAME
   if (phase === "pre") {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center px-7">
+      <div className="h-screen flex flex-col items-center justify-center px-7 overflow-hidden">
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-4">
           Rapid Math
         </div>
@@ -236,8 +236,8 @@ const MathGame = () => {
     const delta = lastSessionScore !== null ? score - lastSessionScore : null;
 
     return (
-      <div className="flex flex-col min-h-screen p-5 pt-5">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
+      <div className="h-screen overflow-hidden flex flex-col p-5 pt-5">
+        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start flex-shrink-0">
           ←
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mt-5">
@@ -266,7 +266,7 @@ const MathGame = () => {
             ))}
           </div>
         </div>
-        <div className="flex gap-2.5 justify-center">
+        <div className="flex gap-2.5 justify-center flex-shrink-0">
           <button
             onClick={startGame}
             className="border border-border/50 rounded-lg px-[18px] py-2.5 font-sans text-xs text-muted-foreground"
@@ -288,22 +288,22 @@ const MathGame = () => {
   const timerPct = (timeLeft / GAME_DURATION) * 100;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="h-screen overflow-hidden flex flex-col">
       <TimerBar percentage={timerPct} />
-      <div className="flex-1 flex flex-col">
-        <div className="flex justify-end px-4 py-2">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex justify-end px-4 py-2 flex-shrink-0">
           <span className="font-sans text-[11px] text-muted-foreground">
             {questionsAttempted} ans · {correctAnswers} ✓
           </span>
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-4">
+        <div className="flex-1 flex items-center justify-center px-4 overflow-hidden">
           <div className="font-mono text-[26px] font-semibold text-foreground animate-fade-in-up">
             {question?.expression}
           </div>
         </div>
 
-        <div className="px-6 pb-3">
+        <div className="px-6 pb-3 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div
               className={`flex-1 bg-elevated rounded-lg py-3.5 px-4 font-mono text-[15px] transition-all border-2 ${

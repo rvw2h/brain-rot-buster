@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { persistGameSession } from "@/lib/gamePersistence";
@@ -118,6 +118,15 @@ const ColorGame = () => {
   const outlineCanvasRef = useRef<HTMLCanvasElement>(null);
   const autoSaveRef = useRef<ReturnType<typeof setInterval>>();
 
+  // Zoom / Pan State
+  const [scale, setScale] = useState(1.0);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false); // true if dragging to pan
+  const pinchDistanceRef = useRef<number | null>(null);
+  const initialPanRef = useRef<{ x: number; y: number } | null>(null);
+  const lastPanPosRef = useRef<{ x: number; y: number } | null>(null);
+
   // Check for saved canvases on mount
   useEffect(() => {
     const saved = new Set<string>();
@@ -161,6 +170,9 @@ const ColorGame = () => {
     setStrokes([]);
     setStartTime(Date.now());
     setElapsed(0);
+    setScale(1.0);
+    setPanX(0);
+    setPanY(0);
   }, [selectedImage]);
 
   useEffect(() => {
@@ -194,32 +206,93 @@ const ColorGame = () => {
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
 
+  const getDistance = (touches: React.TouchList) => {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
+    
+    // Pinch to zoom
+    if ("touches" in e && e.touches.length === 2) {
+      pinchDistanceRef.current = getDistance(e.touches);
+      return;
+    }
+
+    const pos = getPos(e);
+
+    // Pan mode or drag panning
+    if (scale > 1) {
+      setIsPanning(true);
+      lastPanPosRef.current = pos;
+      initialPanRef.current = { x: panX, y: panY };
+      return;
+    }
+
     setIsDrawing(true);
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     setStrokes((prev) => [...prev, ctx.getImageData(0, 0, canvas.width, canvas.height)]);
-    const pos = getPos(e);
+    
+    // Adjust drawing start coordinate for scale/pan
+    const drawX = pos.x / scale - panX / scale;
+    const drawY = pos.y / scale - panY / scale;
+    
     ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
+    ctx.moveTo(drawX, drawY);
     ctx.strokeStyle = isEraser ? "#FFFFFF" : activeColor;
-    ctx.lineWidth = activeBrushSize.size;
+    ctx.lineWidth = activeBrushSize.size / scale;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDrawing) return;
     e.preventDefault();
+
+    if ("touches" in e && e.touches.length === 2 && pinchDistanceRef.current !== null) {
+      const newDist = getDistance(e.touches);
+      const diff = newDist / pinchDistanceRef.current;
+      setScale((prev) => Math.min(Math.max(0.5, prev * diff), 4.0));
+      pinchDistanceRef.current = newDist;
+      return;
+    }
+
+    const pos = getPos(e);
+
+    if (isPanning && lastPanPosRef.current && initialPanRef.current) {
+      const dx = pos.x - lastPanPosRef.current.x;
+      const dy = pos.y - lastPanPosRef.current.y;
+      setPanX(initialPanRef.current.x + dx);
+      setPanY(initialPanRef.current.y + dy);
+      return;
+    }
+
+    if (!isDrawing) return;
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
-    const pos = getPos(e);
-    ctx.lineTo(pos.x, pos.y);
+    
+    const drawX = pos.x / scale - panX / scale;
+    const drawY = pos.y / scale - panY / scale;
+    
+    ctx.lineTo(drawX, drawY);
     ctx.stroke();
   };
 
-  const endDraw = () => setIsDrawing(false);
+  const endDraw = () => {
+    setIsDrawing(false);
+    setIsPanning(false);
+    pinchDistanceRef.current = null;
+    initialPanRef.current = null;
+    lastPanPosRef.current = null;
+  };
+
+  const resetZoom = () => {
+    setScale(1.0);
+    setPanX(0);
+    setPanY(0);
+  };
 
   const undo = () => {
     const canvas = canvasRef.current!;
@@ -241,19 +314,9 @@ const ColorGame = () => {
     }
     const pct = Math.min(100, Math.round((colored / 200) * 100));
 
-    let sc = 0;
-    if (pct >= 100) sc = 20;
-    else if (pct >= 75) sc = 15;
-    else if (pct >= 50) sc = 10;
-    else if (pct >= 25) sc = 5;
+    let sc = 0; // Hardcode score 0
 
-    const today = new Date().toISOString().split("T")[0];
-    const key = `bs_scores_${today}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "{}");
-    if (!existing.coloring || existing.coloring < sc) {
-      existing.coloring = sc;
-      localStorage.setItem(key, JSON.stringify(existing));
-    }
+    // Remove local storage writes for bs_scores_... coloring
 
     // Delete auto-saved canvas
     localStorage.removeItem(`bs_canvas_${selectedImage.id}`);
@@ -285,15 +348,15 @@ const ColorGame = () => {
   // PICKER
   if (phase === "picker") {
     return (
-      <div className="flex flex-col min-h-screen p-5 pb-24">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start mb-4">
+      <div className="h-screen overflow-hidden flex flex-col p-5 pb-24">
+        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start mb-4 flex-shrink-0">
           ← Back
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2">
           Coloring Focus
         </div>
         <h1 className="font-display text-[22px] font-semibold text-foreground mb-6">Pick a canvas</h1>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 no-scrollbar">
           {OUTLINES.map((img) => (
             <button
               key={img.id}
@@ -321,37 +384,19 @@ const ColorGame = () => {
 
   // RESULT
   if (phase === "result") {
-    const today = new Date().toISOString().split("T")[0];
-    const key = `bs_scores_${today}`;
-    const existing = JSON.parse(localStorage.getItem(key) || "{}");
-    const sc = existing.coloring || 0;
-
     return (
-      <div className="flex flex-col min-h-screen p-5 pb-24">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
+      <div className="h-screen overflow-hidden flex flex-col p-5 pb-24">
+        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start flex-shrink-0">
           ←
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mt-5">
           Coloring Focus
         </div>
         <div className="flex-1 flex flex-col items-center justify-center">
-          <div className="font-display text-[60px] font-bold text-game-red leading-none">{sc}</div>
-          <div className="font-sans text-sm text-muted-foreground mt-1">points</div>
-          <div className="flex gap-0 mt-7 w-full">
-            {[
-              [formatTime(elapsed), "time"],
-              [String(sc), "score"],
-            ].map(([n, l]) => (
-              <div key={l} className="flex-1 text-center border-r border-border/30 last:border-0">
-                <div className="font-mono text-lg font-semibold text-foreground">{n}</div>
-                <div className="font-sans text-[9px] text-muted-foreground tracking-wider uppercase mt-0.5">
-                  {l}
-                </div>
-              </div>
-            ))}
-          </div>
+          <div className="font-display text-[60px] font-bold text-game-red leading-none">{formatTime(elapsed)}</div>
+          <div className="font-sans text-sm text-muted-foreground mt-1">time spent</div>
         </div>
-        <div className="flex gap-2.5 justify-center">
+        <div className="flex gap-2.5 justify-center flex-shrink-0">
           <button
             onClick={() => setPhase("picker")}
             className="border border-border/50 rounded-lg px-[18px] py-2.5 font-sans text-xs text-muted-foreground"
@@ -371,32 +416,40 @@ const ColorGame = () => {
 
   // CANVAS
   return (
-    <div className="flex flex-col min-h-screen pb-24">
-      <div className="flex justify-between px-3.5 py-2.5 bg-background">
+    <div className="h-screen overflow-hidden flex flex-col pb-24">
+      <div className="flex justify-between px-3.5 py-2.5 bg-background flex-shrink-0">
         <span className="font-sans text-[11px] text-muted-foreground">{selectedImage.name}</span>
+        {scale !== 1.0 && (
+          <span className="font-sans text-[9px] text-game-red bg-[hsl(var(--game-red)/0.12)] px-2 py-0.5 rounded-full uppercase tracking-widest pointer-events-none">
+            Pan Mode
+          </span>
+        )}
       </div>
 
-      <div className="flex-1 relative" style={{ background: "#FFFFFF" }}>
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 w-full h-full touch-none"
-          onMouseDown={startDraw}
-          onMouseMove={draw}
-          onMouseUp={endDraw}
-          onMouseLeave={endDraw}
-          onTouchStart={startDraw}
-          onTouchMove={draw}
-          onTouchEnd={endDraw}
-        />
-        <canvas
-          ref={outlineCanvasRef}
-          className="absolute inset-0 w-full h-full pointer-events-none"
-          style={{ opacity: 0.7 }}
-        />
+      <div className="flex-1 relative overflow-hidden bg-white" onDoubleClick={resetZoom}>
+        <div 
+          className="absolute inset-0 w-full h-full origin-top-left touch-none"
+          style={{ transform: `translate(${panX}px, ${panY}px) scale(${scale})` }}
+        >
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 w-full h-full pointer-events-auto"
+            onPointerDown={startDraw}
+            onPointerMove={draw}
+            onPointerUp={endDraw}
+            onPointerLeave={endDraw}
+            onPointerCancel={endDraw}
+          />
+          <canvas
+            ref={outlineCanvasRef}
+            className="absolute inset-0 w-full h-full pointer-events-none"
+            style={{ opacity: 0.7 }}
+          />
+        </div>
       </div>
 
       {/* Toolbar */}
-      <div className="bg-[#161616] border-t border-border/30 fixed bottom-0 left-0 right-0">
+      <div className="bg-[#161616] border-t border-border/30 fixed bottom-0 left-0 right-0 z-10 flex-shrink-0">
         <div className="max-w-md mx-auto px-3 py-2 space-y-2">
           {/* Row 1: color palette, right-aligned */}
           <div className="flex items-center justify-end gap-1.5 overflow-x-auto no-scrollbar">
@@ -421,15 +474,34 @@ const ColorGame = () => {
 
           {/* Row 2: tools */}
           <div className="flex items-center justify-between gap-3">
-            {/* Undo on the left */}
-            <button
-              onClick={undo}
-              className={`p-1.5 text-base rounded-md ${
-                strokes.length > 0 ? "text-muted-foreground" : "text-t-tertiary opacity-30"
-              }`}
-            >
-              ↩
-            </button>
+            {/* Zoom / Undo on the left */}
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={undo}
+                className={`p-1.5 text-base rounded-md ${
+                  strokes.length > 0 ? "text-muted-foreground" : "text-t-tertiary opacity-30"
+                }`}
+              >
+                ↩
+              </button>
+              
+              <div className="h-6 w-[1px] bg-border/30 mx-0.5"></div>
+              
+              <button
+                onClick={() => setScale(p => Math.max(0.5, p - 0.25))}
+                disabled={scale <= 0.5}
+                className="w-7 h-7 flex items-center justify-center text-t-tertiary bg-[#1F1F1F] rounded-md disabled:opacity-30"
+              >
+                −
+              </button>
+              <button
+                onClick={() => setScale(p => Math.min(4.0, p + 0.25))}
+                disabled={scale >= 4.0}
+                className="w-7 h-7 flex items-center justify-center text-t-tertiary bg-[#1F1F1F] rounded-md disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
 
             {/* Brush size circles in the center */}
             <div className="flex items-center justify-center gap-3">

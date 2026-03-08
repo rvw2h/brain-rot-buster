@@ -17,7 +17,7 @@ const Leaderboard = () => {
         <div className="inline-flex self-start bg-elevated rounded-lg px-3 py-1.5 font-sans text-[11px] text-muted-foreground mb-3.5">
           Today, {new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })} ▾
         </div>
-        <div className="flex flex-col gap-1.5 flex-1">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-1.5 no-scrollbar">
           {rows.map((r) => (
             <div
               key={r.rank}

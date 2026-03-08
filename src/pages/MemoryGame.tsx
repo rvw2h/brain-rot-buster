@@ -26,7 +26,6 @@ const MemoryGame = () => {
   const [timeLeft, setTimeLeft] = useState(0);
   const [input, setInput] = useState("");
   const [recalled, setRecalled] = useState<Set<string>>(new Set());
-  const [fuzzyCount, setFuzzyCount] = useState(0);
   const [wrongChips, setWrongChips] = useState<WrongChip[]>([]);
   const [lastSessionScore, setLastSessionScore] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
@@ -43,7 +42,6 @@ const MemoryGame = () => {
     const sessionWords = getWordsForSession();
     setWords(sessionWords);
     setRecalled(new Set());
-    setFuzzyCount(0);
     setInput("");
     setWrongChips([]);
     setTimeLeft(DISPLAY_TIME);
@@ -78,7 +76,6 @@ const MemoryGame = () => {
     const result = checkWord(input, words, recalled);
     if (result.match && result.word) {
       setRecalled((prev) => new Set(prev).add(result.word!));
-      if (result.fuzzy) setFuzzyCount((p) => p + 1);
       if (recalled.size + 1 >= words.length) {
         setPhase("result");
         clearInterval(timerRef.current);
@@ -135,7 +132,7 @@ const MemoryGame = () => {
         localStorage.setItem(key, JSON.stringify(existing));
       }
       const best = parseInt(localStorage.getItem("bs_best") || "0");
-      const total = (existing.math || 0) + (existing.memory || 0) + (existing.coloring || 0);
+      const total = (existing.math || 0) + (existing.memory || 0);
       if (total > best) localStorage.setItem("bs_best", String(total));
 
       if (lastSessionScore !== null && sc > lastSessionScore) {
@@ -159,7 +156,6 @@ const MemoryGame = () => {
           metadata: {
             totalWords: words.length,
             recalledCount: recalled.size,
-            fuzzyCount,
           },
         });
 
@@ -174,7 +170,7 @@ const MemoryGame = () => {
         }
       })();
     }
-  }, [phase, recalled, lastSessionScore, words.length, fuzzyCount, accuracy, profile]);
+  }, [phase, recalled, lastSessionScore, words.length, accuracy, profile]);
 
   const totalDuration = phase === "display" ? DISPLAY_TIME : RECALL_TIME;
   const timerPct = (timeLeft / totalDuration) * 100;
@@ -182,7 +178,7 @@ const MemoryGame = () => {
   // PRE
   if (phase === "pre") {
     return (
-      <div className="flex flex-col min-h-screen items-center justify-center px-7">
+      <div className="h-screen flex flex-col items-center justify-center px-7 overflow-hidden">
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-4">
           Memory Recall
         </div>
@@ -213,8 +209,8 @@ const MemoryGame = () => {
     const delta = lastSessionScore !== null ? score - lastSessionScore : null;
 
     return (
-      <div className="flex flex-col min-h-screen p-5">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start">
+      <div className="h-screen overflow-hidden flex flex-col p-5">
+        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start flex-shrink-0">
           ←
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mt-5">
@@ -242,13 +238,8 @@ const MemoryGame = () => {
               </div>
             ))}
           </div>
-          {fuzzyCount > 0 && (
-            <p className="font-sans text-[11px] text-muted-foreground mt-3">
-              + {fuzzyCount} fuzzy matches accepted
-            </p>
-          )}
         </div>
-        <div className="flex gap-2.5 justify-center">
+        <div className="flex gap-2.5 justify-center flex-shrink-0">
           <button
             onClick={() =>
               navigate("/memory/words", {
@@ -279,21 +270,21 @@ const MemoryGame = () => {
   // DISPLAY PHASE
   if (phase === "display") {
     return (
-      <div className="flex flex-col min-h-screen">
+      <div className="h-screen overflow-hidden flex flex-col">
         <TimerBar percentage={timerPct} />
-        <div className="flex-1 flex flex-col p-4">
-          <div className="font-mono text-xs text-game-red mb-2">
+        <div className="flex-1 overflow-hidden flex flex-col p-4">
+          <div className="font-mono text-xs text-game-red mb-2 flex-shrink-0">
             {String(Math.floor(timeLeft / 60)).padStart(2, "0")}:
             {String(timeLeft % 60).padStart(2, "0")}
           </div>
-          <div className="flex-1 flex flex-col gap-1.5 items-start overflow-hidden">
+          <div className="flex-1 overflow-auto mb-2" style={{ columns: 2, columnGap: "0.75rem" }}>
             {words.map((w) => (
-              <span
+              <div
                 key={w}
-                className="font-display text-xs font-medium text-foreground py-1 px-2 bg-surface rounded self-stretch text-left"
+                className="font-display text-xs font-medium text-foreground py-1.5 px-2 bg-surface rounded mb-1.5 break-inside-avoid text-left"
               >
                 {w}
-              </span>
+              </div>
             ))}
           </div>
           <p className="font-sans text-[10px] text-t-tertiary text-center pt-1.5">
@@ -306,15 +297,15 @@ const MemoryGame = () => {
 
   // RECALL PHASE
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="h-screen overflow-hidden flex flex-col">
       <TimerBar percentage={timerPct} />
-      <div className="flex-1 flex flex-col">
-        <div className="px-4 py-2">
+      <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="px-4 py-2 flex-shrink-0">
           <div className="font-display text-lg font-semibold text-foreground">
             {recalled.size} recalled
           </div>
         </div>
-        <div className="px-4 pb-2">
+        <div className="px-4 pb-2 flex-shrink-0">
           <div className="bg-elevated rounded-lg py-3.5 px-4 font-mono text-[15px] border-2 border-border/30">
             {input ? (
               <span className="text-foreground">{input}</span>
@@ -323,7 +314,7 @@ const MemoryGame = () => {
             )}
           </div>
         </div>
-        <div className="flex-1 px-3 flex flex-wrap content-start gap-1.5 overflow-auto no-scrollbar">
+        <div className="flex-1 overflow-y-auto px-3 flex flex-wrap content-start gap-1.5 no-scrollbar">
           {Array.from(recalled).map((w) => (
             <span
               key={w}

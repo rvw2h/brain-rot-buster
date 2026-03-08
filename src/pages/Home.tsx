@@ -29,7 +29,7 @@ const HomePage = () => {
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
   const hasAnyScore =
     scores.math !== undefined || scores.memory !== undefined || scores.coloring !== undefined;
-  const totalToday = (scores.math || 0) + (scores.memory || 0) + (scores.coloring || 0);
+  const totalToday = (scores.math || 0) + (scores.memory || 0);
 
   // Get yesterday's scores
   const yesterday = new Date(today);
@@ -37,7 +37,7 @@ const HomePage = () => {
   const yesterdayKey = yesterday.toISOString().split("T")[0];
   const yesterdayRaw = localStorage.getItem(`bs_scores_${yesterdayKey}`);
   const yesterdayScores: ScoreData = yesterdayRaw ? JSON.parse(yesterdayRaw) : {};
-  const totalYesterday = (yesterdayScores.math || 0) + (yesterdayScores.memory || 0) + (yesterdayScores.coloring || 0);
+  const totalYesterday = (yesterdayScores.math || 0) + (yesterdayScores.memory || 0);
 
   // Best score
   const bestRaw = localStorage.getItem("bs_best");
@@ -129,7 +129,6 @@ const HomePage = () => {
             title="Coloring Focus"
             subtitle="Color. Breathe. Reset."
             played={scores.coloring !== undefined}
-            lastScore={scores.coloring !== undefined ? `${scores.coloring} pts` : undefined}
             onClick={() => navigate("/color")}
           />
         </div>

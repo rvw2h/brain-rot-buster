@@ -2,7 +2,7 @@ import BottomNav from "@/components/game/BottomNav";
 
 const History = () => {
   // Get last 7 days of scores from localStorage
-  const days: { label: string; date: string; math: number | null; mem: number | null; color: number | null; total: number | null; isToday: boolean }[] = [];
+  const days: { label: string; date: string; math: number | null; mem: number | null; total: number | null; isToday: boolean }[] = [];
   
   const today = new Date();
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -19,8 +19,7 @@ const History = () => {
       date: key,
       math: scores?.math ?? null,
       mem: scores?.memory ?? null,
-      color: scores?.coloring ?? null,
-      total: scores ? (scores.math || 0) + (scores.memory || 0) + (scores.coloring || 0) : null,
+      total: scores ? (scores.math || 0) + (scores.memory || 0) : null,
       isToday: i === 0,
     });
   }
@@ -35,7 +34,6 @@ const History = () => {
           <span className="w-9">Date</span>
           <span className="flex-1 text-center">Math</span>
           <span className="flex-1 text-center">Mem</span>
-          <span className="flex-1 text-center">Color</span>
           <span className="flex-1 text-center">Total</span>
         </div>
 
@@ -51,7 +49,7 @@ const History = () => {
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-game-red" />
               )}
               <span className="font-sans text-[11px] text-muted-foreground w-9">{row.label}</span>
-              {[row.math, row.mem, row.color, row.total].map((v, j) => (
+              {[row.math, row.mem, row.total].map((v, j) => (
                 <span
                   key={j}
                   className={`flex-1 text-center font-mono text-[11px] ${

@@ -62,10 +62,12 @@ const Onboarding = () => {
       .padStart(4, "0");
     const shortCode = `${namePrefix}${rand}`;
 
-    if (method === "google") {
-      const { data: authData } = await supabase.auth.getSession();
-      const authUser = authData.session?.user;
-      if (authUser) {
+    // For both Google and Manual logic - if logged into Auth we sync to DB
+    const { data: authData } = await supabase.auth.getSession();
+    const authUser = authData.session?.user;
+    
+    if (authUser) {
+      try {
         await supabase
           .from("users")
           .upsert(
@@ -78,21 +80,13 @@ const Onboarding = () => {
             },
             { onConflict: "google_id" },
           );
+      } catch (err) {
+        console.error("Failed to sync user to Supabase:", err);
       }
-    } else {
-      // Manual entry - insert without auth, but still allow app access via local profile
-      try {
-        await supabase.from("users").insert({
-          first_name: trimmedName,
-          google_id: null,
-          age: parsedAge,
-          city: trimmedCity,
-          referral_code: shortCode,
-        });
-      } catch {
-        // Ignore insert failure for manual users
-      }
+    }
 
+    if (method !== "google") {
+      // Manual entry local profile payload
       const manualProfile = {
         first_name: trimmedName,
         age: parsedAge,
@@ -102,6 +96,12 @@ const Onboarding = () => {
       setManualUser(manualProfile);
     }
 
+    // This block was added to handle navigation and haptic feedback
+    // The original code had `if (!user)` but `user` was not defined.
+    // Assuming the intent was to navigate after successful processing.
+    if (typeof window !== "undefined" && (window as any).Telegram?.WebApp) {
+      (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+    }
     navigate("/home");
   };
 
