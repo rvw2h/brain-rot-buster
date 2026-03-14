@@ -16,40 +16,17 @@ const Onboarding = () => {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Check session and user existence on mount
+  // Pre-populate from Google session
   useEffect(() => {
-    const handleAuthCheck = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      
-      // If Google redirect but no session, go back to login
-      if (method === "google" && !user) {
-        navigate("/login");
-        return;
-      }
-
-      if (user) {
-        // If user already exists in DB, skip onboarding
-        const { data: existingUser } = await supabase
-          .from("users")
-          .select("id")
-          .eq("google_id", user.id)
-          .maybeSingle();
-
-        if (existingUser) {
-          navigate("/home");
-          return;
-        }
-
-        // Pre-fill name from Google metadata
-        if (method === "google" && user.user_metadata?.full_name) {
+    if (method === "google") {
+      supabase.auth.getSession().then(({ data }) => {
+        const user = data.session?.user;
+        if (user?.user_metadata?.full_name) {
           setName(user.user_metadata.full_name.split(" ")[0]);
         }
-      }
-    };
-
-    handleAuthCheck();
-  }, [method, navigate]);
+      });
+    }
+  }, [method]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -85,12 +62,10 @@ const Onboarding = () => {
       .padStart(4, "0");
     const shortCode = `${namePrefix}${rand}`;
 
-    // For both Google and Manual logic - if logged into Auth we sync to DB
-    const { data: authData } = await supabase.auth.getSession();
-    const authUser = authData.session?.user;
-    
-    if (authUser) {
-      try {
+    if (method === "google") {
+      const { data: authData } = await supabase.auth.getSession();
+      const authUser = authData.session?.user;
+      if (authUser) {
         await supabase
           .from("users")
           .upsert(
@@ -103,13 +78,21 @@ const Onboarding = () => {
             },
             { onConflict: "google_id" },
           );
-      } catch (err) {
-        console.error("Failed to sync user to Supabase:", err);
       }
-    }
+    } else {
+      // Manual entry - insert without auth, but still allow app access via local profile
+      try {
+        await supabase.from("users").insert({
+          first_name: trimmedName,
+          google_id: null,
+          age: parsedAge,
+          city: trimmedCity,
+          referral_code: shortCode,
+        });
+      } catch {
+        // Ignore insert failure for manual users
+      }
 
-    if (method !== "google") {
-      // Manual entry local profile payload
       const manualProfile = {
         first_name: trimmedName,
         age: parsedAge,
@@ -119,12 +102,6 @@ const Onboarding = () => {
       setManualUser(manualProfile);
     }
 
-    // This block was added to handle navigation and haptic feedback
-    // The original code had `if (!user)` but `user` was not defined.
-    // Assuming the intent was to navigate after successful processing.
-    if (typeof window !== "undefined" && (window as any).Telegram?.WebApp) {
-      (window as any).Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-    }
     navigate("/home");
   };
 

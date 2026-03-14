@@ -22,30 +22,9 @@ export async function persistGameSession({
   completedAt,
   metadata,
 }: PersistArgs) {
-  if (!Number.isFinite(score)) return null;
+  if (!user?.id || !Number.isFinite(score)) return;
 
-  let userId = user?.id;
-
-  // If no auth ID but we have a user profile with name (manual user), try to lookup their ID
-  if (!userId && user && user.first_name) {
-    try {
-      let query = supabase
-        .from("users")
-        .select("id")
-        .eq("first_name", user.first_name);
-        
-      if (user.age) query = query.eq("age", user.age);
-      if (user.city) query = query.eq("city", user.city);
-
-      const { data } = await query.limit(1).maybeSingle();
-      if (data?.id) userId = data.id;
-    } catch {
-      // Ignore lookup failure
-    }
-  }
-
-  // If we still don't have an ID, we can't persist to Supabase
-  if (!userId) return null;
+  const userId = user.id;
   const date = completedAt.split("T")[0]!;
 
   try {
