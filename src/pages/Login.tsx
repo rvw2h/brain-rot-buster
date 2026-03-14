@@ -77,6 +77,12 @@ const Login = () => {
         </div>
       </div>
 
+      <div className="mt-4 flex flex-col items-center gap-1">
+        <p className="font-sans text-[12px] text-[#888888] text-center" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+          Be smart and train daily — use Google Login for the full experience 🧠
+        </p>
+      </div>
+
       <p className="font-sans text-[11px] text-t-tertiary text-center mt-6">
         No spam. No notifications. Just you.
       </p>

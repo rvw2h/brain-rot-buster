@@ -23,13 +23,13 @@ const Onboarding = () => {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
       
-      // If Google redirect but no session, go back to login
-      if (method === "google" && !user) {
-        navigate("/login");
-        return;
-      }
+      // If Google method, session is required
+      if (method === "google") {
+        if (!user) {
+          navigate("/login");
+          return;
+        }
 
-      if (user) {
         // If user already exists in DB, skip onboarding
         const { data: existingUser } = await supabase
           .from("users")
@@ -43,8 +43,14 @@ const Onboarding = () => {
         }
 
         // Pre-fill name from Google metadata
-        if (method === "google" && user.user_metadata?.full_name) {
+        if (user.user_metadata?.full_name) {
           setName(user.user_metadata.full_name.split(" ")[0]);
+        }
+      } else {
+        // Manual method: check if they already have a local profile
+        const stored = localStorage.getItem("bs_manual_user");
+        if (stored) {
+          navigate("/home");
         }
       }
     };
@@ -86,31 +92,32 @@ const Onboarding = () => {
       .padStart(4, "0");
     const shortCode = `${namePrefix}${rand}`;
 
-    // Every user (Google or Manual) MUST have a Supabase session now
-    const { data: authData } = await supabase.auth.getSession();
-    const authUser = authData.session?.user;
-    
-    if (!authUser) {
-      setSyncError("Please verify your email first (check your inbox for a magic link)");
-      return;
-    }
-
     try {
       setSyncError(null);
-      await supabase
-        .from("users")
-        .upsert(
-          {
-            first_name: trimmedName,
-            google_id: authUser.id,
-            age: parsedAge,
-            city: trimmedCity,
-            referral_code: shortCode,
-          },
-          { onConflict: "google_id" },
-        );
       
-      if (method !== "google") {
+      if (method === "google") {
+        const { data: authData } = await supabase.auth.getSession();
+        const authUser = authData.session?.user;
+        
+        if (!authUser) {
+          setSyncError("Session lost. Please log in again.");
+          return;
+        }
+
+        await supabase
+          .from("users")
+          .upsert(
+            {
+              first_name: trimmedName,
+              google_id: authUser.id,
+              age: parsedAge,
+              city: trimmedCity,
+              referral_code: shortCode,
+            },
+            { onConflict: "google_id" },
+          );
+      } else {
+        // Manual Flow - No Supabase Auth needed anymore
         const manualProfile = {
           first_name: trimmedName,
           age: parsedAge,
@@ -120,7 +127,7 @@ const Onboarding = () => {
         setManualUser(manualProfile);
       }
 
-      navigate("/home");
+      navigate("/home", { state: { loginMethod: method } });
     } catch (err) {
       setSyncError("Something went wrong. Please try again.");
       console.error("Onboarding sync error:", err);

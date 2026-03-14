@@ -27,7 +27,8 @@ const HomePage = () => {
   const hasLoggedAppSession = useRef(false);
 
   useEffect(() => {
-    if (!profile || hasLoggedAppSession.current) return;
+    // Only log sessions for Supabase users who have a DB profile
+    if (!profile || hasLoggedAppSession.current || !!manualUser) return;
 
     const logAppSession = async () => {
       hasLoggedAppSession.current = true;

@@ -44,6 +44,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!isMounted) return;
       setSession(data.session);
       setUser(data.session?.user ?? null);
+
+      if (!data.session) {
+        const stored = localStorage.getItem("bs_manual_user");
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored) as ManualUser;
+            setManualUser(parsed);
+          } catch {
+            setManualUser(null);
+          }
+        }
+      }
       setLoading(false);
     };
 
@@ -56,6 +68,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(newSession?.user ?? null);
 
       if (event === "SIGNED_IN" && newSession?.user) {
+        // Clear manual user if we have a real session
+        setManualUser(null);
+        localStorage.removeItem("bs_manual_user");
+
         // Load profile immediately on sign in
         const { data: profileData } = await supabase
           .from("users")
@@ -69,6 +85,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else if (event === "SIGNED_OUT") {
         setProfile(null);
         setManualUser(null);
+        localStorage.removeItem("bs_manual_user");
       }
     });
 

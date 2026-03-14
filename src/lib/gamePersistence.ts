@@ -25,8 +25,8 @@ export async function persistGameSession({
   const { data: { session } } = await supabase.auth.getSession();
   const authUser = session?.user;
 
-  if (!authUser || !Number.isFinite(score)) {
-    console.warn("Cannot persist game session: No auth session found");
+  // DB persistence is ONLY for authenticated users
+  if (!session || !authUser || !Number.isFinite(score)) {
     return null;
   }
 
@@ -38,7 +38,6 @@ export async function persistGameSession({
     .maybeSingle();
 
   if (!userRow) {
-    console.warn("Cannot persist game session: No profile found for auth user", authUser.id);
     return null;
   }
 
