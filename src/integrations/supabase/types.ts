@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_sessions: {
+        Row: {
+          id: string
+          user_id: string | null
+          started_at: string | null
+          method: string | null
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          started_at?: string | null
+          method?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          started_at?: string | null
+          method?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "app_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_scores: {
         Row: {
           coloring_score: number | null

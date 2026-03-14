@@ -32,23 +32,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
 
     const init = async () => {
+      // Check for OTP code in URL first
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+      if (code && isMounted) {
+        setLoading(true);
+        await supabase.auth.exchangeCodeForSession(code);
+      }
+
       const { data } = await supabase.auth.getSession();
       if (!isMounted) return;
       setSession(data.session);
       setUser(data.session?.user ?? null);
-
-      if (!data.session) {
-        const stored = localStorage.getItem("bs_manual_user");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as ManualUser;
-            setManualUser(parsed);
-          } catch {
-            setManualUser(null);
-          }
-        }
-      }
-
       setLoading(false);
     };
 
@@ -56,24 +51,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
-      setProfile(null);
 
-      if (newSession) {
-        setManualUser(null);
-        localStorage.removeItem("bs_manual_user");
-      } else {
-        const stored = localStorage.getItem("bs_manual_user");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as ManualUser;
-            setManualUser(parsed);
-          } catch {
-            setManualUser(null);
-          }
+      if (event === "SIGNED_IN" && newSession?.user) {
+        // Load profile immediately on sign in
+        const { data: profileData } = await supabase
+          .from("users")
+          .select("*")
+          .eq("google_id", newSession.user.id)
+          .maybeSingle();
+        
+        if (isMounted) {
+          setProfile(profileData ?? null);
         }
+      } else if (event === "SIGNED_OUT") {
+        setProfile(null);
+        setManualUser(null);
       }
     });
 

@@ -22,9 +22,27 @@ export async function persistGameSession({
   completedAt,
   metadata,
 }: PersistArgs) {
-  if (!user?.id || !Number.isFinite(score)) return;
+  const { data: { session } } = await supabase.auth.getSession();
+  const authUser = session?.user;
 
-  const userId = user.id;
+  if (!authUser || !Number.isFinite(score)) {
+    console.warn("Cannot persist game session: No auth session found");
+    return null;
+  }
+
+  // Look up the user ID in our 'users' table using the auth UUID
+  const { data: userRow } = await supabase
+    .from("users")
+    .select("id")
+    .eq("google_id", authUser.id)
+    .maybeSingle();
+
+  if (!userRow) {
+    console.warn("Cannot persist game session: No profile found for auth user", authUser.id);
+    return null;
+  }
+
+  const userId = userRow.id;
   const date = completedAt.split("T")[0]!;
 
   try {

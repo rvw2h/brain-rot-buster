@@ -1,8 +1,34 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { profile, loading } = useAuth();
+
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        // Double check if user row exists in DB
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("id")
+          .eq("google_id", session.user.id)
+          .maybeSingle();
+
+        if (userRow) {
+          navigate("/home", { state: { loginMethod: "auto" } });
+        }
+        // If session exists but no user row, stay here to let them finish onboarding
+      }
+    };
+
+    if (!loading) {
+      checkSession();
+    }
+  }, [navigate, loading]);
 
   const handleGoogle = async () => {
     await supabase.auth.signInWithOAuth({

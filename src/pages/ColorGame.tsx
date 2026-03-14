@@ -197,13 +197,25 @@ const ColorGame = () => {
     return () => clearInterval(int);
   }, [phase, startTime]);
 
-  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
-    const canvas = canvasRef.current!;
+  const getPos = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent): { x: number; y: number } | null => {
+    const canvas = canvasRef.current;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
+    let clientX, clientY;
+
     if ("touches" in e) {
-      return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+      if (e.touches.length === 0) return null;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = (e as MouseEvent).clientX;
+      clientY = (e as MouseEvent).clientY;
     }
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+
+    return {
+      x: (clientX - rect.left) / scale,
+      y: (clientY - rect.top) / scale,
+    };
   };
 
   const getDistance = (touches: React.TouchList) => {
@@ -215,30 +227,46 @@ const ColorGame = () => {
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     
-    // Pinch to zoom
-    if ("touches" in e && e.touches.length === 2) {
-      pinchDistanceRef.current = getDistance(e.touches);
-      return;
+    if ("touches" in e) {
+      if (e.touches.length === 2) {
+        // Pinch to zoom
+        pinchDistanceRef.current = getDistance(e.touches);
+        initialPanRef.current = { x: panX, y: panY }; // Store current pan for pinch-zoom
+        lastPanPosRef.current = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
+        return;
+      } else if (e.touches.length === 1) {
+        // Single touch
+        if (scale > 1.01) { // If zoomed in, single touch is for panning
+          setIsPanning(true);
+          lastPanPosRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          initialPanRef.current = { x: panX, y: panY };
+          return;
+        }
+        // Else (scale is 1.0), single touch is for drawing
+      } else {
+        return; // Ignore more than 2 touches or no touches
+      }
+    } else { // Mouse event
+      if (scale > 1.01) { // If zoomed in, mouse drag is for panning
+        setIsPanning(true);
+        lastPanPosRef.current = { x: e.clientX, y: e.clientY };
+        initialPanRef.current = { x: panX, y: panY };
+        return;
+      }
     }
 
-    const pos = getPos(e);
-
-    // Pan mode or drag panning
-    if (scale > 1) {
-      setIsPanning(true);
-      lastPanPosRef.current = pos;
-      initialPanRef.current = { x: panX, y: panY };
-      return;
-    }
-
+    // If we reach here, it's a drawing action
     setIsDrawing(true);
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     setStrokes((prev) => [...prev, ctx.getImageData(0, 0, canvas.width, canvas.height)]);
     
-    // Adjust drawing start coordinate for scale/pan
-    const drawX = pos.x / scale - panX / scale;
-    const drawY = pos.y / scale - panY / scale;
+    const pos = getPos(e);
+    if (!pos) return;
+
+    // Drawing coordinates are already adjusted by getPos for scale
+    const drawX = pos.x - panX / scale;
+    const drawY = pos.y - panY / scale;
     
     ctx.beginPath();
     ctx.moveTo(drawX, drawY);
@@ -251,21 +279,46 @@ const ColorGame = () => {
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
 
-    if ("touches" in e && e.touches.length === 2 && pinchDistanceRef.current !== null) {
-      const newDist = getDistance(e.touches);
-      const diff = newDist / pinchDistanceRef.current;
-      setScale((prev) => Math.min(Math.max(0.5, prev * diff), 4.0));
-      pinchDistanceRef.current = newDist;
-      return;
-    }
+    if ("touches" in e) {
+      if (e.touches.length === 2 && pinchDistanceRef.current !== null && lastPanPosRef.current !== null && initialPanRef.current !== null) {
+        const newDist = getDistance(e.touches);
+        const diff = newDist / pinchDistanceRef.current;
+        const newScale = Math.min(Math.max(0.5, scale * diff), 4.0);
+        
+        // Calculate new pan based on pinch center
+        const currentCenter = { x: (e.touches[0].clientX + e.touches[1].clientX) / 2, y: (e.touches[0].clientY + e.touches[1].clientY) / 2 };
+        const prevCenter = lastPanPosRef.current;
 
-    const pos = getPos(e);
+        const dx = currentCenter.x - prevCenter.x;
+        const dy = currentCenter.y - prevCenter.y;
 
-    if (isPanning && lastPanPosRef.current && initialPanRef.current) {
-      const dx = pos.x - lastPanPosRef.current.x;
-      const dy = pos.y - lastPanPosRef.current.y;
-      setPanX(initialPanRef.current.x + dx);
-      setPanY(initialPanRef.current.y + dy);
+        // Adjust pan based on scale change and center movement
+        const scaleRatio = newScale / scale;
+        const newPanX = currentCenter.x - (currentCenter.x - panX) * scaleRatio;
+        const newPanY = currentCenter.y - (currentCenter.y - panY) * scaleRatio;
+
+        setScale(newScale);
+        setPanX(newPanX + dx);
+        setPanY(newPanY + dy);
+
+        pinchDistanceRef.current = newDist;
+        lastPanPosRef.current = currentCenter;
+        return;
+      } else if (isPanning && e.touches.length === 1 && lastPanPosRef.current) {
+        const touch = e.touches[0];
+        const dx = touch.clientX - lastPanPosRef.current.x;
+        const dy = touch.clientY - lastPanPosRef.current.y;
+        setPanX((p) => p + dx);
+        setPanY((p) => p + dy);
+        lastPanPosRef.current = { x: touch.clientX, y: touch.clientY };
+        return;
+      }
+    } else if (isPanning && lastPanPosRef.current) { // Mouse panning
+      const dx = e.clientX - lastPanPosRef.current.x;
+      const dy = e.clientY - lastPanPosRef.current.y;
+      setPanX((p) => p + dx);
+      setPanY((p) => p + dy);
+      lastPanPosRef.current = { x: e.clientX, y: e.clientY };
       return;
     }
 
@@ -273,8 +326,12 @@ const ColorGame = () => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d")!;
     
-    const drawX = pos.x / scale - panX / scale;
-    const drawY = pos.y / scale - panY / scale;
+    const pos = getPos(e);
+    if (!pos) return;
+
+    // Drawing coordinates are already adjusted by getPos for scale
+    const drawX = pos.x - panX / scale;
+    const drawY = pos.y - panY / scale;
     
     ctx.lineTo(drawX, drawY);
     ctx.stroke();

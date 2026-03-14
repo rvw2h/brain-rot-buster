@@ -1,5 +1,5 @@
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState, useRef } from "react";
 import BottomNav from "@/components/game/BottomNav";
 import GameTile from "@/components/game/GameTile";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +22,31 @@ const HomePage = () => {
     const scoresRaw = localStorage.getItem(`bs_scores_${today}`);
     if (scoresRaw) setScores(JSON.parse(scoresRaw));
   }, []);
+
+  const location = useLocation();
+  const hasLoggedAppSession = useRef(false);
+
+  useEffect(() => {
+    if (!profile || hasLoggedAppSession.current) return;
+
+    const logAppSession = async () => {
+      hasLoggedAppSession.current = true;
+      const method = location.state?.loginMethod || "auto";
+      
+      try {
+        await supabase
+          .from("app_sessions")
+          .insert({
+            user_id: profile.id,
+            method: method
+          });
+      } catch (err) {
+        console.error("Failed to log app session:", err);
+      }
+    };
+
+    logAppSession();
+  }, [profile, location.state]);
 
   if (!profile && !manualUser) return null;
 

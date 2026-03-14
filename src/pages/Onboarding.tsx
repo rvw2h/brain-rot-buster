@@ -15,18 +15,42 @@ const Onboarding = () => {
   const [city, setCity] = useState("");
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [syncError, setSyncError] = useState<string | null>(null);
 
-  // Pre-populate from Google session
+  // Check session and user existence on mount
   useEffect(() => {
-    if (method === "google") {
-      supabase.auth.getSession().then(({ data }) => {
-        const user = data.session?.user;
-        if (user?.user_metadata?.full_name) {
+    const handleAuthCheck = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      // If Google redirect but no session, go back to login
+      if (method === "google" && !user) {
+        navigate("/login");
+        return;
+      }
+
+      if (user) {
+        // If user already exists in DB, skip onboarding
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("id")
+          .eq("google_id", user.id)
+          .maybeSingle();
+
+        if (existingUser) {
+          navigate("/home");
+          return;
+        }
+
+        // Pre-fill name from Google metadata
+        if (method === "google" && user.user_metadata?.full_name) {
           setName(user.user_metadata.full_name.split(" ")[0]);
         }
-      });
-    }
-  }, [method]);
+      }
+    };
+
+    handleAuthCheck();
+  }, [method, navigate]);
 
   const validate = (): boolean => {
     const errs: Record<string, string> = {};
@@ -62,47 +86,45 @@ const Onboarding = () => {
       .padStart(4, "0");
     const shortCode = `${namePrefix}${rand}`;
 
-    if (method === "google") {
-      const { data: authData } = await supabase.auth.getSession();
-      const authUser = authData.session?.user;
-      if (authUser) {
-        await supabase
-          .from("users")
-          .upsert(
-            {
-              first_name: trimmedName,
-              google_id: authUser.id,
-              age: parsedAge,
-              city: trimmedCity,
-              referral_code: shortCode,
-            },
-            { onConflict: "google_id" },
-          );
-      }
-    } else {
-      // Manual entry - insert without auth, but still allow app access via local profile
-      try {
-        await supabase.from("users").insert({
-          first_name: trimmedName,
-          google_id: null,
-          age: parsedAge,
-          city: trimmedCity,
-          referral_code: shortCode,
-        });
-      } catch {
-        // Ignore insert failure for manual users
-      }
-
-      const manualProfile = {
-        first_name: trimmedName,
-        age: parsedAge,
-        city: trimmedCity,
-      };
-      localStorage.setItem("bs_manual_user", JSON.stringify(manualProfile));
-      setManualUser(manualProfile);
+    // Every user (Google or Manual) MUST have a Supabase session now
+    const { data: authData } = await supabase.auth.getSession();
+    const authUser = authData.session?.user;
+    
+    if (!authUser) {
+      setSyncError("Please verify your email first (check your inbox for a magic link)");
+      return;
     }
 
-    navigate("/home");
+    try {
+      setSyncError(null);
+      await supabase
+        .from("users")
+        .upsert(
+          {
+            first_name: trimmedName,
+            google_id: authUser.id,
+            age: parsedAge,
+            city: trimmedCity,
+            referral_code: shortCode,
+          },
+          { onConflict: "google_id" },
+        );
+      
+      if (method !== "google") {
+        const manualProfile = {
+          first_name: trimmedName,
+          age: parsedAge,
+          city: trimmedCity,
+        };
+        localStorage.setItem("bs_manual_user", JSON.stringify(manualProfile));
+        setManualUser(manualProfile);
+      }
+
+      navigate("/home");
+    } catch (err) {
+      setSyncError("Something went wrong. Please try again.");
+      console.error("Onboarding sync error:", err);
+    }
   };
 
   const isGoogle = method === "google";
@@ -159,6 +181,12 @@ const Onboarding = () => {
       <p className="font-sans text-[10px] text-t-tertiary mt-2 mb-3 text-center">
         No spam · No notifications · No T&C nonsense
       </p>
+
+      {syncError && (
+        <p className="font-sans text-xs text-game-red mb-4 p-3 bg-red-500/10 rounded-lg">
+          {syncError}
+        </p>
+      )}
 
       <button
         onClick={handleSubmit}

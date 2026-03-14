@@ -6,14 +6,14 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { session, manualUser, loading } = useAuth();
+  const { session, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
     return null;
   }
 
-  if (!session && !manualUser) {
+  if (!session) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
