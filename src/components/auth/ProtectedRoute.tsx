@@ -10,7 +10,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
 
   if (loading) {
-    return null;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 animate-pulse">
+        <div className="w-10 h-10 border-4 border-game-red/30 border-t-game-red rounded-full animate-spin mb-4" />
+        <p className="font-sans text-sm text-muted-foreground font-medium">Fighting brain rot...</p>
+      </div>
+    );
   }
 
   if (!session && !manualUser) {

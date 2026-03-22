@@ -16,6 +16,7 @@ import MemoryWords from "./pages/MemoryWords";
 import NotFound from "./pages/NotFound";
 import { AuthProvider } from "@/contexts/AuthContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -25,8 +26,9 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <div className="max-w-md mx-auto min-h-screen bg-background relative shadow-2xl">
+        <ErrorBoundary>
+          <AuthProvider>
+            <div className="max-w-md mx-auto min-h-screen bg-background relative shadow-2xl">
             <Routes>
               <Route path="/" element={<Login />} />
               <Route path="/login" element={<Login />} />
@@ -99,6 +101,7 @@ const App = () => (
             </Routes>
           </div>
         </AuthProvider>
+      </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

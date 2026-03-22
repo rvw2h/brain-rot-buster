@@ -32,31 +32,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let isMounted = true;
 
     const init = async () => {
-      // Check for OTP code in URL first
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      if (code && isMounted) {
-        setLoading(true);
-        await supabase.auth.exchangeCodeForSession(code);
-      }
+      try {
+        // Check for OTP code in URL first
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+        if (code && isMounted) {
+          setLoading(true);
+          await supabase.auth.exchangeCodeForSession(code);
+        }
 
-      const { data } = await supabase.auth.getSession();
-      if (!isMounted) return;
-      setSession(data.session);
-      setUser(data.session?.user ?? null);
+        const { data } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        setSession(data.session);
+        setUser(data.session?.user ?? null);
 
-      if (!data.session) {
-        const stored = localStorage.getItem("bs_manual_user");
-        if (stored) {
-          try {
-            const parsed = JSON.parse(stored) as ManualUser;
-            setManualUser(parsed);
-          } catch {
-            setManualUser(null);
+        if (!data.session) {
+          const stored = localStorage.getItem("bs_manual_user");
+          if (stored) {
+            try {
+              const parsed = JSON.parse(stored) as ManualUser;
+              setManualUser(parsed);
+            } catch {
+              setManualUser(null);
+            }
           }
         }
+      } catch (err) {
+        console.error("Auth initialization error:", err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-      setLoading(false);
     };
 
     init();
