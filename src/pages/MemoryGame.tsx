@@ -297,7 +297,7 @@ const MemoryGame = () => {
 
   // RECALL PHASE
   return (
-    <div className="h-screen overflow-hidden flex flex-col">
+    <div className="h-[100dvh] overflow-hidden flex flex-col bg-background">
       <TimerBar percentage={timerPct} />
       <div className="flex-1 overflow-hidden flex flex-col">
         <div className="px-4 py-2 flex-shrink-0">
@@ -306,19 +306,19 @@ const MemoryGame = () => {
           </div>
         </div>
         <div className="px-4 pb-2 flex-shrink-0">
-          <div className="bg-elevated rounded-lg py-3.5 px-4 font-mono text-[15px] border-2 border-border/30">
+          <div className="bg-elevated rounded-lg py-3 px-4 font-mono text-[15px] border-2 border-border/30">
             {input ? (
               <span className="text-foreground">{input}</span>
             ) : (
-              <span className="text-t-tertiary">type a word, press enter</span>
+              <span className="text-t-tertiary">type and press enter</span>
             )}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto px-3 flex flex-wrap content-start gap-1.5 no-scrollbar">
+        <div className="flex-1 overflow-y-auto px-4 py-1 flex flex-wrap content-start gap-1.5 no-scrollbar">
           {Array.from(recalled).map((w) => (
             <span
               key={w}
-              className="inline-block py-1.5 px-4 rounded-full bg-[hsl(var(--game-green)/0.12)] border border-[hsl(var(--game-green)/0.2)] font-sans text-sm text-game-green animate-chip-pop"
+              className="inline-block py-1 px-3.5 rounded-full bg-[hsl(var(--game-green)/0.12)] border border-[hsl(var(--game-green)/0.2)] font-sans text-xs text-game-green animate-chip-pop"
             >
               {w}
             </span>
@@ -326,7 +326,7 @@ const MemoryGame = () => {
           {wrongChips.map((chip) => (
             <span
               key={chip.id}
-              className="inline-block py-1.5 px-4 rounded-full font-sans text-sm animate-chip-pop"
+              className="inline-block py-1 px-3.5 rounded-full font-sans text-xs animate-chip-pop"
               style={{
                 background: "rgba(255,45,85,0.08)",
                 border: "1px solid rgba(255,45,85,0.2)",

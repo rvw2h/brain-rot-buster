@@ -288,25 +288,25 @@ const MathGame = () => {
   const timerPct = (timeLeft / GAME_DURATION) * 100;
 
   return (
-    <div className="h-screen overflow-hidden flex flex-col">
+    <div className="h-[100dvh] overflow-hidden flex flex-col bg-background">
       <TimerBar percentage={timerPct} />
       <div className="flex-1 overflow-hidden flex flex-col">
-        <div className="flex justify-end px-4 py-2 flex-shrink-0">
+        <div className="flex justify-end px-4 py-1.5 flex-shrink-0">
           <span className="font-sans text-[11px] text-muted-foreground">
             {questionsAttempted} ans · {correctAnswers} ✓
           </span>
         </div>
 
-        <div className="flex-1 flex items-center justify-center px-4 overflow-hidden">
-          <div className="font-mono text-[26px] font-semibold text-foreground animate-fade-in-up">
+        <div className="flex-1 flex items-center justify-center px-4 overflow-hidden min-h-[140px]">
+          <div className="font-mono text-[28px] font-semibold text-foreground animate-fade-in-up text-center">
             {question?.expression}
           </div>
         </div>
 
-        <div className="px-6 pb-3 flex-shrink-0">
+        <div className="px-6 pb-2.5 flex-shrink-0">
           <div className="flex items-center gap-2">
             <div
-              className={`flex-1 bg-elevated rounded-lg py-3.5 px-4 font-mono text-[15px] transition-all border-2 ${
+              className={`flex-1 bg-elevated rounded-lg py-3 px-4 font-mono text-[16px] transition-all border-2 ${
                 answerState === "correct"
                   ? "border-game-green bg-[hsl(var(--game-green)/0.08)] shadow-[0_0_0_2px_hsl(var(--game-green)/0.3)] animate-flash-green"
                   : answerState === "wrong"
@@ -317,7 +317,7 @@ const MathGame = () => {
               {input ? (
                 <span className="text-foreground">{input}</span>
               ) : (
-                <span className="text-t-tertiary">your answer</span>
+                <span className="text-t-tertiary">answer</span>
               )}
             </div>
             {answerState === "correct" && (
