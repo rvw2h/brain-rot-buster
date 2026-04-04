@@ -10,9 +10,10 @@ interface ScoreData {
   math?: number;
   memory?: number;
   coloring?: number;
-  mathAcc?: number;
+  sharp_eye?: number;
   aura_math?: number;
   aura_memory?: number;
+  aura_audit?: number;
 }
 
 const HomePage = () => {
@@ -62,10 +63,11 @@ const HomePage = () => {
 
   const mathScore = isAura ? scores.aura_math : scores.math;
   const memoryScore = isAura ? scores.aura_memory : scores.memory;
+  const auditScore = isAura ? scores.aura_audit : scores.sharp_eye;
   const coloringScore = scores.coloring || 0;
 
-  const totalToday = (mathScore || 0) + (memoryScore || 0) + (isAura ? 0 : coloringScore);
-  const hasAnyScore = totalToday > 0 || !!mathScore || !!memoryScore || (!isAura && !!coloringScore);
+  const totalToday = (mathScore || 0) + (memoryScore || 0) + (auditScore || 0) + (isAura ? 0 : coloringScore);
+  const hasAnyScore = totalToday > 0 || !!mathScore || !!memoryScore || !!auditScore;
 
   // Get yesterday's scores
   const yesterday = new Date(today);
@@ -76,7 +78,8 @@ const HomePage = () => {
   
   const yMathScore = isAura ? yesterdayScores.aura_math : yesterdayScores.math;
   const yMemoryScore = isAura ? yesterdayScores.aura_memory : yesterdayScores.memory;
-  const totalYesterday = (yMathScore || 0) + (yMemoryScore || 0);
+  const yAuditScore = isAura ? yesterdayScores.aura_audit : yesterdayScores.sharp_eye;
+  const totalYesterday = (yMathScore || 0) + (yMemoryScore || 0) + (yAuditScore || 0);
 
   // Best score
   const bestKey = isAura ? "bs_best_aura" : "bs_best";
@@ -207,6 +210,14 @@ const HomePage = () => {
             isAura={isAura}
             lastScore={memoryScore !== undefined ? `${memoryScore} pts` : undefined}
             onClick={() => navigate("/memory")}
+          />
+          <GameTile
+            title={isAura ? "The Audit" : "Sharp Eye"}
+            subtitle={isAura ? "Read everything · assume nothing" : "Observational detail. Spot errors."}
+            played={auditScore !== undefined}
+            isAura={isAura}
+            lastScore={auditScore !== undefined ? `${auditScore} pts` : undefined}
+            onClick={() => navigate("/sharp-eye")}
           />
         </div>
       </div>

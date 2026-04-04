@@ -1,17 +1,18 @@
 import { supabase } from "@/lib/supabase";
 import type { Tables } from "@/integrations/supabase/types";
 
-type GameType = "math" | "memory" | "coloring";
+type GameType = "math" | "memory" | "coloring" | "sharp_eye" | "audit";
 
 interface PersistArgs {
   gameType: GameType;
-  user: Tables<"users"> | any | null; // Use any to allow manual user safely
+  user: Tables<"users"> | any | null; 
   score: number;
   accuracyPct: number | null;
   startedAt: string;
   completedAt: string;
   metadata: Record<string, unknown>;
   mode?: "simple" | "aura";
+  assumptionErrors?: number;
 }
 
 export async function persistGameSession({
@@ -23,16 +24,15 @@ export async function persistGameSession({
   completedAt,
   metadata,
   mode = "simple",
+  assumptionErrors = 0,
 }: PersistArgs) {
   const { data: { session } } = await supabase.auth.getSession();
   const authUser = session?.user;
 
-  // DB persistence is ONLY for authenticated users
   if (!session || !authUser || !Number.isFinite(score)) {
     return null;
   }
 
-  // Look up the user ID in our 'users' table using the auth UUID
   const { data: userRow } = await supabase
     .from("users")
     .select("id")
@@ -59,13 +59,13 @@ export async function persistGameSession({
       .limit(1)
       .maybeSingle();
 
-    const isBestOfHour = !bestInHour || bestInHour.score === null || score > bestInHour.score;
+    const isBestOfHour = !bestInHour || bestInHour.score === null || score > (bestInHour.score as number);
 
     const { data: insertedSession } = await supabase
       .from("sessions")
       .insert({
         user_id: userId,
-        game_type: gameType,
+        game_type: gameType as any,
         date,
         started_at: startedAt,
         completed_at: completedAt,
@@ -74,18 +74,18 @@ export async function persistGameSession({
         is_best_of_hour: isBestOfHour,
         metadata: metadata as any,
         mode: mode,
-      })
+        assumption_errors: assumptionErrors,
+      } as any)
       .select("id")
       .single();
 
-    const sessionId = insertedSession?.id ?? null;
+    const sessionId = (insertedSession as any)?.id ?? null;
 
-    await updateDailyScores({ userId, gameType, score, date });
-    await updateUserLastScore({ userId, gameType, score });
+    await updateDailyScores({ userId, gameType, score, date, mode });
+    await updateUserLastScore({ userId, gameType, score, mode });
 
     return sessionId;
   } catch {
-    // Fail silently; localStorage remains the fast cache and source for UI.
     return null;
   }
 }
@@ -104,9 +104,20 @@ async function updateDailyScores({
   mode?: "simple" | "aura";
 }) {
   const isAura = mode === "aura";
-  const column = isAura 
-    ? (gameType === "math" ? "aura_math" : "aura_memory")
-    : (gameType === "math" ? "math_score" : gameType === "memory" ? "memory_score" : "coloring_score");
+  
+  let column = "";
+  if (isAura) {
+    if (gameType === "math") column = "aura_math";
+    else if (gameType === "memory") column = "aura_memory";
+    else if (gameType === "audit") column = "aura_audit_score";
+  } else {
+    if (gameType === "math") column = "math_score";
+    else if (gameType === "memory") column = "memory_score";
+    else if (gameType === "coloring") column = "coloring_score";
+    else if (gameType === "sharp_eye") column = "sharp_eye_score";
+  }
+
+  if (!column) return;
 
   const { data: todayRow } = await supabase
     .from("daily_scores")
@@ -115,12 +126,14 @@ async function updateDailyScores({
     .eq("date", date)
     .maybeSingle();
 
-  const scores = {
+  const scores: any = {
     math: todayRow?.math_score ?? null,
     memory: todayRow?.memory_score ?? null,
     coloring: todayRow?.coloring_score ?? null,
+    sharp_eye: todayRow?.sharp_eye_score ?? null,
     aura_math: todayRow?.aura_math ?? null,
     aura_memory: todayRow?.aura_memory ?? null,
+    aura_audit: todayRow?.aura_audit_score ?? null,
   };
 
   const currentForGame = todayRow?.[column as keyof typeof todayRow] as number | null;
@@ -130,15 +143,17 @@ async function updateDailyScores({
   if (isAura) {
     if (gameType === "math") scores.aura_math = newForGame;
     else if (gameType === "memory") scores.aura_memory = newForGame;
+    else if (gameType === "audit") scores.aura_audit = newForGame;
   } else {
     if (gameType === "math") scores.math = newForGame;
     else if (gameType === "memory") scores.memory = newForGame;
     else if (gameType === "coloring") scores.coloring = newForGame;
+    else if (gameType === "sharp_eye") scores.sharp_eye = newForGame;
   }
 
   const newTotal = isAura 
-    ? (scores.aura_math ?? 0) + (scores.aura_memory ?? 0)
-    : (scores.math ?? 0) + (scores.memory ?? 0) + (scores.coloring ?? 0);
+    ? (scores.aura_math ?? 0) + (scores.aura_memory ?? 0) + (scores.aura_audit ?? 0)
+    : (scores.math ?? 0) + (scores.memory ?? 0) + (scores.coloring ?? 0) + (scores.sharp_eye ?? 0);
 
   const yesterday = new Date(date);
   yesterday.setDate(yesterday.getDate() - 1);
@@ -163,8 +178,10 @@ async function updateDailyScores({
         math_score: scores.math,
         memory_score: scores.memory,
         coloring_score: scores.coloring,
+        sharp_eye_score: scores.sharp_eye,
         aura_math: scores.aura_math,
         aura_memory: scores.aura_memory,
+        aura_audit_score: scores.aura_audit,
         total_score: newTotal,
         delta_bonus: deltaBonus,
       },
@@ -184,9 +201,20 @@ async function updateUserLastScore({
   mode?: "simple" | "aura";
 }) {
   const isAura = mode === "aura";
-  const field = isAura
-    ? (gameType === "math" ? "last_aura_math" : "last_aura_memory")
-    : (gameType === "math" ? "last_math_score" : gameType === "memory" ? "last_memory_score" : "last_coloring_score");
+  let field = "";
+  
+  if (isAura) {
+    if (gameType === "math") field = "last_aura_math";
+    else if (gameType === "memory") field = "last_aura_memory";
+    else if (gameType === "audit") field = "last_aura_audit";
+  } else {
+    if (gameType === "math") field = "last_math_score";
+    else if (gameType === "memory") field = "last_memory_score";
+    else if (gameType === "coloring") field = "last_coloring_score";
+    else if (gameType === "sharp_eye") field = "last_sharp_eye";
+  }
+
+  if (!field) return;
 
   await supabase
     .from("users")

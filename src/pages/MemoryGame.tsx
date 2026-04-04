@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   getWordsForSession, 
@@ -13,6 +13,18 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAppMode } from "@/contexts/ModeContext";
 import { persistGameSession } from "@/lib/gamePersistence";
 import { supabase } from "@/lib/supabase";
+import { 
+  getDailySeed, 
+  getMessage, 
+  SIMPLE_MEMORY_PREGAME, 
+  AURA_MEMORY_PREGAME,
+  SIMPLE_RESULT_POSITIVE,
+  SIMPLE_RESULT_LOW,
+  AURA_RESULT_BEAST,
+  AURA_RESULT_SOLID,
+  AURA_RESULT_NEGATIVE 
+} from "@/lib/messages";
+import FlameParticles from "@/components/game/FlameParticles";
 
 type Phase = "pre" | "display" | "recall" | "result";
 
@@ -52,6 +64,21 @@ const MemoryGame = () => {
   const wrongIdRef = useRef(0);
   const deltaIdRef = useRef(0);
   const gameStartRef = useRef<number | null>(null);
+
+  // Daily Message Logic
+  const userId = profile?.first_name || manualUser?.first_name || "Guest";
+  const dailySeed = useMemo(() => getDailySeed(userId), [userId]);
+  
+  const preGameHeading = getMessage(isAura ? AURA_MEMORY_PREGAME : SIMPLE_MEMORY_PREGAME, dailySeed);
+  
+  const resultMessage = useMemo(() => {
+    if (!isAura) {
+      return getMessage(score > 0 ? SIMPLE_RESULT_POSITIVE : SIMPLE_RESULT_LOW, dailySeed);
+    }
+    if (score <= 0) return getMessage(AURA_RESULT_NEGATIVE, dailySeed);
+    const beatLast = lastSessionScore !== null ? score > lastSessionScore : true;
+    return getMessage(beatLast ? AURA_RESULT_BEAST : AURA_RESULT_SOLID, dailySeed);
+  }, [isAura, score, lastSessionScore, dailySeed]);
 
   const startGame = () => {
     const today = new Date().toISOString().split("T")[0];
@@ -157,8 +184,12 @@ const MemoryGame = () => {
   const toggleSelection = (word: string) => {
     setRecalled(prev => {
       const next = new Set(prev);
-      if (next.has(word)) next.delete(word);
-      else next.add(word);
+      if (next.has(word)) {
+        next.delete(word);
+      } else {
+        next.add(word);
+        addDelta("+2", "#00F5A0");
+      }
       return next;
     });
   };
@@ -224,26 +255,38 @@ const MemoryGame = () => {
   if (phase === "pre") {
     return (
       <div className="h-screen flex flex-col items-center justify-center px-7 bg-background overflow-hidden relative">
-        <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-4 text-center">Memory Recall</div>
-        <h1 className="font-display text-[22px] font-semibold text-foreground text-center">
-          {isAura ? "Remember everything." : "Memorise. Then recall."}
+        {isAura && <FlameParticles />}
+        <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-4 text-center z-10">Memory Recall</div>
+        <h1 className="font-display text-[22px] font-semibold text-foreground text-center z-10">
+          {preGameHeading}
         </h1>
-        <p className="font-sans text-sm text-muted-foreground mt-2 text-center max-w-[240px]">
-          {isAura ? "50 words. Wrong answers cost you points. Intense." : "25 words. 20s to memorise. Then select from grid."}
+        <p className="font-sans text-sm text-muted-foreground mt-2 text-center max-w-[240px] z-10">
+          {isAura ? "50 words · 20s to memorise · type to recall" : "25 words · 20s to memorise · tap to recall"}
         </p>
-        <button onClick={startGame} className={`mt-8 rounded-lg px-8 py-3 font-sans text-sm font-semibold transition-all ${isAura ? "bg-[#FF2D55] text-white" : "bg-game-red text-white"}`}>
+        <button onClick={startGame} className={`mt-8 rounded-lg px-8 py-3 font-sans text-sm font-semibold transition-all z-10 ${isAura ? "bg-[#FF2D55] text-white shadow-[0_0_20px_rgba(255,45,85,0.3)] animate-badge-breathe" : "bg-game-red text-white"}`}>
           {isAura ? "Lock in." : "Start →"}
         </button>
-        <button onClick={() => navigate("/home")} className="mt-4 font-sans text-xs text-muted-foreground">← Back</button>
+        <div className="mt-6 text-center z-10">
+           {isAura ? (
+             <p className="font-sans text-[12px] text-[#FF2D55]/70">
+               ✓ Correct: +4pts   ·   ✗ Wrong: −1pt   ·   Duplicate: 0pts
+             </p>
+           ) : (
+             <p className="font-sans text-[12px] text-[#888888]">
+               Every correct selection: +2pts. No penalties.
+             </p>
+           )}
+        </div>
+        <button onClick={() => navigate("/home")} className="mt-8 font-sans text-xs text-muted-foreground z-10">← Back</button>
       </div>
     );
   }
 
   if (phase === "display") {
     return (
-      <div className={`h-screen overflow-hidden flex flex-col ${isAura ? 'bg-background' : ''}`}>
+      <div className={`h-screen overflow-hidden flex flex-col ${isAura ? 'bg-background aura-scanlines' : ''}`}>
         <TimerBar percentage={timerPct} color={isAura ? "#FF2D55" : undefined} />
-        <div className="flex-1 overflow-hidden flex flex-col p-4">
+        <div className="flex-1 overflow-hidden flex flex-col p-4 relative z-10">
           <div className="flex justify-between items-center mb-3">
              <div className="font-mono text-sm text-game-red flex items-center gap-1.5">
                <span className={timeLeft <= 5 ? "animate-timer-pulse" : ""}>
@@ -252,8 +295,8 @@ const MemoryGame = () => {
                </span>
              </div>
              {isAura && (
-               <div className="px-1.5 py-0.5 rounded-[4px] bg-[rgba(255,45,85,0.12)] border border-[rgba(255,45,85,0.25)]">
-                 <span className="text-[#FF2D55] font-display text-[8px] font-bold tracking-[0.2em] leading-none uppercase">Aura</span>
+               <div className="px-1.5 py-0.5 rounded-[4px] bg-[rgba(255,45,85,0.12)] border border-[rgba(255,45,85,0.25)] animate-badge-breathe">
+                 <span className="text-[#FF2D55] font-display text-[8px] font-bold tracking-[0.2em] leading-none uppercase">Aura Mode</span>
                </div>
              )}
           </div>
@@ -273,8 +316,11 @@ const MemoryGame = () => {
   if (phase === "recall") {
     if (!isAura) {
       return (
-        <div className="h-[100dvh] overflow-hidden flex flex-col bg-background">
-          <div className="p-4 flex justify-between items-center bg-surface border-b border-border/30">
+        <div className="h-[100dvh] overflow-hidden flex flex-col bg-background relative">
+          {deltas.map(d => (
+            <div key={d.id} className="absolute left-1/2 top-10 -translate-x-1/2 font-display text-xl font-bold animate-float-up z-20" style={{ color: d.color }}>{d.val}</div>
+          ))}
+          <div className="p-4 flex justify-between items-center bg-surface border-b border-border/30 z-10">
             <div>
               <div className="font-display text-lg font-bold text-foreground leading-tight">Recall</div>
               <div className="font-sans text-[11px] text-muted-foreground uppercase tracking-widest">{recalled.size} selected</div>
@@ -283,7 +329,7 @@ const MemoryGame = () => {
               Submit ↵
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-2.5 no-scrollbar">
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-2.5 no-scrollbar z-10">
             {selectionWords.map(w => {
               const isSelected = recalled.has(w);
               return (
@@ -297,15 +343,15 @@ const MemoryGame = () => {
       );
     }
     return (
-      <div className="h-[100dvh] overflow-hidden flex flex-col bg-background relative">
+      <div className="h-[100dvh] overflow-hidden flex flex-col bg-background relative aura-scanlines">
         <TimerBar percentage={timerPct} color="#FF2D55" />
         {deltas.map(d => (
           <div key={d.id} className="absolute left-1/2 top-48 -translate-x-1/2 font-display text-xl font-bold animate-float-up z-20" style={{ color: d.color }}>{d.val}</div>
         ))}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col relative z-10">
           <div className="px-4 py-2 flex justify-between items-center">
             <div className="font-display text-lg font-bold text-foreground">{recalled.size} recalled</div>
-            <div className={`font-display text-2xl font-bold transition-all ${score > 0 ? "text-[#FF2D55] animate-score-pulse" : "text-muted-foreground"}`}>{score}</div>
+            <div className={`font-display text-2xl font-bold transition-all ${score > 0 ? "text-[#FF2D55] animate-score-pulse" : "text-[#888888]"}`}>{score}</div>
           </div>
           <div className="px-4 pb-2">
             <div className={`rounded-lg py-3 px-4 font-mono text-[15px] border-2 transition-all ${duplicateFlash ? "border-[#FFD60A] bg-[#FFD60A]/10 shadow-[0_0_12px_rgba(255,214,10,0.2)]" : "border-[rgba(255,45,85,0.2)] bg-[#161616]"}`}>
@@ -328,15 +374,30 @@ const MemoryGame = () => {
 
   if (phase === "result") {
     const delta = lastSessionScore !== null ? score - lastSessionScore : null;
+    const isNegative = score < 0;
+
     return (
-      <div className="h-screen overflow-hidden flex flex-col p-5 bg-background">
+      <div className={`h-screen overflow-hidden flex flex-col p-5 bg-background ${isAura ? "aura-scanlines" : ""}`}>
         <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start mb-4">←</button>
         <div className="font-display text-sm font-bold text-[#FF2D55] uppercase tracking-widest mb-1">{isAura ? "Aura Check." : "Session Over."}</div>
-        <div className="flex-1 flex flex-col items-center justify-center">
-          <div className={`font-display text-[72px] font-bold leading-none ${isAura && score > 0 ? "text-[#FF2D55] drop-shadow-[0_0_20px_rgba(255,45,85,0.3)]" : "text-foreground"}`}>{score}</div>
+        <div className="flex-1 flex flex-col items-center justify-center relative z-10">
+          <div className={`font-display text-[72px] font-bold leading-none ${
+              isAura 
+                ? (isNegative ? "text-[#888888]" : "text-[#FF2D55] animate-aura-glow") 
+                : (isNegative ? "text-game-red" : "text-foreground")
+            }`}>
+            {score}
+          </div>
           <div className="font-sans text-sm text-muted-foreground mt-2">points</div>
+          
+          <div className="mt-4 mb-2">
+            <p className={`font-sans text-[13px] italic text-center ${isAura ? "text-[#FF2D55]/80" : "text-[#888888]"}`}>
+              "{resultMessage}"
+            </p>
+          </div>
+
           {delta !== null && delta !== 0 && (
-            <div className={`font-sans text-xs mt-4 px-3 py-1 rounded-full ${delta > 0 ? "bg-game-green/10 text-game-green" : "bg-game-red/10 text-game-red"}`}>{delta > 0 ? `↑ +${delta}` : `↓ ${delta}`} vs last session</div>
+            <div className={`font-sans text-xs mt-6 px-3 py-1 rounded-full ${delta > 0 ? "bg-game-green/10 text-game-green" : "bg-game-red/10 text-game-red"}`}>{delta > 0 ? `↑ +${delta}` : `↓ ${delta}`} vs last session</div>
           )}
           <div className="grid grid-cols-3 gap-0 w-full mt-12 border-t border-b border-border/10 py-6">
             {[ [String(recalled.size), "RECALLED"], [isAura ? String(wrongChips.length) : "25", isAura ? "WRONG" : "TARGET"], [`${accuracy}%`, "ACCURACY"], ].map(([n, l]) => (
@@ -347,7 +408,7 @@ const MemoryGame = () => {
             ))}
           </div>
         </div>
-        <div className="flex flex-col gap-2.5 w-full mt-auto mb-8">
+        <div className="flex flex-col gap-2.5 w-full mt-auto mb-8 relative z-10">
           <button onClick={startGame} className={`w-full py-4 rounded-xl font-display text-sm font-bold transition-all shadow-lg ${isAura ? "bg-[#FF2D55] text-white" : "bg-game-red text-white"}`}>{isAura ? "GO AGAIN →" : "PLAY AGAIN"}</button>
           <button onClick={() => navigate("/home")} className="w-full py-4 bg-surface border border-border/50 rounded-xl font-display text-sm font-bold text-muted-foreground">HOME</button>
         </div>

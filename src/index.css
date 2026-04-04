@@ -179,3 +179,74 @@
   100% { opacity: 0; }
 }
 .animate-mode-flash { animation: mode-switch-flash 300ms ease-out forwards; }
+/* Aura Farm Mode — Visual Intensity additions */
+
+@keyframes aura-particle-float {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  80% { opacity: 1; }
+  100% { transform: translateY(-60px); opacity: 0; }
+}
+.animate-aura-particle {
+  animation: aura-particle-float 3s ease-out infinite;
+}
+
+@keyframes aura-score-glow {
+  0%, 100% { text-shadow: 0 0 20px rgba(255,45,85,0.4), 0 0 40px rgba(255,45,85,0.2); }
+  50% { text-shadow: 0 0 35px rgba(255,45,85,0.8), 0 0 70px rgba(255,45,85,0.4); }
+}
+.animate-aura-glow {
+  animation: aura-score-glow 2s ease-in-out infinite;
+}
+
+@keyframes lightning-bolt-float {
+  0% { transform: translate(-50%, 0) scale(0.5); opacity: 0; }
+  20% { opacity: 1; transform: translate(-50%, -10px) scale(1.2); }
+  100% { transform: translate(-50%, -40px) scale(1); opacity: 0; }
+}
+.animate-lightning {
+  animation: lightning-bolt-float 600ms ease-out forwards;
+}
+
+@keyframes badge-breathe {
+  0%, 100% { box-shadow: 0 0 4px rgba(255,45,85,0.3); }
+  50% { box-shadow: 0 0 12px rgba(255,45,85,0.7); }
+}
+.animate-badge-breathe {
+  animation: badge-breathe 2s ease-in-out infinite;
+}
+
+@keyframes screen-flash-red {
+  0% { background-color: rgba(255,45,85,0.15); }
+  100% { background-color: transparent; }
+}
+.animate-screen-flash-red {
+  animation: screen-flash-red 0.4s ease-out forwards;
+}
+
+@keyframes screen-flash-green {
+  0% { background-color: rgba(0,245,160,0.1); }
+  100% { background-color: transparent; }
+}
+.animate-screen-flash-green {
+  animation: screen-flash-green 0.4s ease-out forwards;
+}
+
+.aura-scanlines {
+  position: relative;
+}
+.aura-scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background-image: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255,255,255,0.012) 2px,
+    rgba(255,255,255,0.012) 4px
+  );
+  background-size: 100% 4px;
+}

@@ -20,6 +20,8 @@ import { ModeProvider } from "@/contexts/ModeContext";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
+import SharpEyeGame from "./pages/SharpEyeGame";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -81,6 +83,14 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <ColorGame />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/sharp-eye"
+                    element={
+                      <ProtectedRoute>
+                        <SharpEyeGame />
                       </ProtectedRoute>
                     }
                   />
