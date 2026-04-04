@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from "react";
 import BottomNav from "@/components/game/BottomNav";
 import GameTile from "@/components/game/GameTile";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAppMode } from "@/contexts/ModeContext";
 import { supabase } from "@/lib/supabase";
 
 interface ScoreData {
@@ -10,12 +11,16 @@ interface ScoreData {
   memory?: number;
   coloring?: number;
   mathAcc?: number;
+  aura_math?: number;
+  aura_memory?: number;
 }
 
 const HomePage = () => {
   const navigate = useNavigate();
   const { session, profile, manualUser, setManualUser } = useAuth();
+  const { mode, setMode } = useAppMode();
   const [scores, setScores] = useState<ScoreData>({});
+  const [showModeFlash, setShowModeFlash] = useState(false);
 
   useEffect(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -27,7 +32,6 @@ const HomePage = () => {
   const hasLoggedAppSession = useRef(false);
 
   useEffect(() => {
-    // Only log sessions for Supabase users who have a DB profile
     if (!profile || hasLoggedAppSession.current || !!manualUser) return;
 
     const logAppSession = async () => {
@@ -39,7 +43,8 @@ const HomePage = () => {
           .from("app_sessions")
           .insert({
             user_id: profile.id,
-            method: method
+            method: method,
+            mode: mode // Include mode in session log
           });
       } catch (err) {
         console.error("Failed to log app session:", err);
@@ -47,15 +52,20 @@ const HomePage = () => {
     };
 
     logAppSession();
-  }, [profile, location.state]);
+  }, [profile, location.state, mode]);
 
   if (!profile && !manualUser) return null;
 
   const today = new Date();
   const dateStr = today.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
-  const hasAnyScore =
-    scores.math !== undefined || scores.memory !== undefined || scores.coloring !== undefined;
-  const totalToday = (scores.math || 0) + (scores.memory || 0);
+  const isAura = mode === "aura";
+
+  const mathScore = isAura ? scores.aura_math : scores.math;
+  const memoryScore = isAura ? scores.aura_memory : scores.memory;
+  const coloringScore = scores.coloring || 0;
+
+  const totalToday = (mathScore || 0) + (memoryScore || 0) + (isAura ? 0 : coloringScore);
+  const hasAnyScore = totalToday > 0 || !!mathScore || !!memoryScore || (!isAura && !!coloringScore);
 
   // Get yesterday's scores
   const yesterday = new Date(today);
@@ -63,16 +73,34 @@ const HomePage = () => {
   const yesterdayKey = yesterday.toISOString().split("T")[0];
   const yesterdayRaw = localStorage.getItem(`bs_scores_${yesterdayKey}`);
   const yesterdayScores: ScoreData = yesterdayRaw ? JSON.parse(yesterdayRaw) : {};
-  const totalYesterday = (yesterdayScores.math || 0) + (yesterdayScores.memory || 0);
+  
+  const yMathScore = isAura ? yesterdayScores.aura_math : yesterdayScores.math;
+  const yMemoryScore = isAura ? yesterdayScores.aura_memory : yesterdayScores.memory;
+  const totalYesterday = (yMathScore || 0) + (yMemoryScore || 0);
 
   // Best score
-  const bestRaw = localStorage.getItem("bs_best");
+  const bestKey = isAura ? "bs_best_aura" : "bs_best";
+  const bestRaw = localStorage.getItem(bestKey);
   const best = bestRaw ? parseInt(bestRaw) : totalToday;
 
   const displayName = profile?.first_name ?? manualUser?.first_name ?? "Friend";
 
+  const handleModeChange = (newMode: "simple" | "aura") => {
+    if (newMode === mode) return;
+    if (newMode === "aura") setShowModeFlash(true);
+    setMode(newMode);
+    setTimeout(() => setShowModeFlash(false), 300);
+  };
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <div 
+      className="flex flex-col min-h-screen relative"
+      style={isAura ? { background: "radial-gradient(ellipse 80% 40% at 50% -10%, rgba(255,45,85,0.08) 0%, transparent 70%), #0C0C0C" } : {}}
+    >
+      {showModeFlash && (
+        <div className="absolute inset-0 z-50 bg-[#FF2D55] animate-mode-flash pointer-events-none" />
+      )}
+      
       <div className="flex-1 p-4 px-[18px] flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-5">
@@ -99,63 +127,86 @@ const HomePage = () => {
         </h1>
 
         {/* Score card */}
-        {hasAnyScore && (
-          <>
-            <div className="bg-surface rounded-[10px] p-3.5 px-3 flex justify-around mb-2 shadow-[0_0_0_1px_hsl(var(--border)/0.5)]">
-              {[
-                { label: "TODAY", value: totalToday, highlight: true },
-                { label: "YESTERDAY", value: totalYesterday || "—", highlight: false },
-                { label: "BEST", value: Math.max(best, totalToday), highlight: false },
-              ].map((item) => (
-                <div key={item.label} className="text-center">
-                  <div
-                    className={`font-display text-[26px] font-bold ${
-                      item.highlight ? "text-game-red" : "text-foreground"
-                    }`}
-                  >
-                    {item.value}
-                  </div>
-                  <div className="font-sans text-[9px] text-muted-foreground tracking-wider uppercase mt-0.5">
-                    {item.label}
-                  </div>
-                </div>
-              ))}
+        <div 
+          className={`rounded-[10px] p-3.5 px-3 flex justify-around mb-3 transition-all ${
+            isAura 
+              ? "bg-[#161616] border-b border-[#FF2D55]/30 shadow-[0_4px_20px_rgba(255,45,85,0.05)]" 
+              : "bg-surface shadow-[0_0_0_1px_hsl(var(--border)/0.5)]"
+          }`}
+        >
+          {[
+            { label: isAura ? "AURA SCORE" : "TODAY", value: totalToday, highlight: true },
+            { label: "YESTERDAY", value: totalYesterday || "—", highlight: false },
+            { label: "BEST", value: Math.max(best, totalToday), highlight: false },
+          ].map((item) => (
+            <div key={item.label} className="text-center">
+              <div
+                className={`font-display font-bold transition-all ${
+                  item.highlight 
+                    ? isAura ? "text-[#FF2D55] text-[32px] animate-score-pulse" : "text-game-red text-[26px]"
+                    : "text-foreground text-[26px]"
+                }`}
+              >
+                {item.value}
+              </div>
+              <div 
+                className={`font-sans text-[9px] tracking-wider uppercase mt-0.5 ${
+                  isAura && item.highlight ? "text-[#FF2D55]" : "text-muted-foreground"
+                }`}
+              >
+                {item.label}
+              </div>
             </div>
-            {totalToday > totalYesterday && totalYesterday > 0 && (
-              <p className="font-sans text-xs text-game-green mb-3.5">↑ Up from yesterday</p>
-            )}
-            {!totalYesterday && (
-              <p className="font-sans text-xs text-muted-foreground mb-3.5">Voilà! Keep going 🎉</p>
-            )}
-          </>
-        )}
+          ))}
+        </div>
+
+        {/* Mode Toggle */}
+        <div className="flex p-1 bg-surface rounded-full mb-6 relative overflow-hidden h-10 shadow-[0_0_0_1px_hsl(var(--border)/0.5)]">
+          <div 
+            className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-200 ease-out ${
+              mode === "simple" ? "left-1 bg-elevated" : "left-[calc(50%+3px)] bg-[#FF2D55]"
+            }`} 
+          />
+          <button 
+            onClick={() => handleModeChange("simple")}
+            className={`flex-1 relative z-10 font-display text-[11px] font-semibold transition-colors ${
+              mode === "simple" ? "text-foreground" : "text-muted-foreground"
+            }`}
+          >
+            Simple Mode
+          </button>
+          <button 
+            onClick={() => handleModeChange("aura")}
+            className={`flex-1 relative z-10 font-display text-[11px] font-semibold transition-colors ${
+              mode === "aura" ? "text-background" : "text-muted-foreground"
+            }`}
+          >
+            Aura Farm Mode
+          </button>
+        </div>
 
         {/* Tag */}
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2.5">
-          Today's Training
+          {isAura ? "The Grinding Grounds" : "Today's Training"}
         </div>
 
         {/* Game tiles */}
         <div className="flex flex-col gap-2 flex-1">
           <GameTile
             title="Rapid Math"
-            subtitle="Solve BODMAS. 120 seconds."
-            played={scores.math !== undefined}
-            lastScore={scores.math !== undefined ? `${scores.math} pts · ${scores.mathAcc || 0}% acc` : undefined}
+            subtitle={isAura ? "10s per question · negative marking" : "Solve BODMAS. 120 seconds."}
+            played={mathScore !== undefined}
+            isAura={isAura}
+            lastScore={mathScore !== undefined ? `${mathScore} pts` : undefined}
             onClick={() => navigate("/math")}
           />
           <GameTile
             title="Memory Recall"
-            subtitle="Memorise 50 words."
-            played={scores.memory !== undefined}
-            lastScore={scores.memory !== undefined ? `${scores.memory} pts` : undefined}
+            subtitle={isAura ? "Type to recall · wrong = -1pt" : "Memorise words. No pressure."}
+            played={memoryScore !== undefined}
+            isAura={isAura}
+            lastScore={memoryScore !== undefined ? `${memoryScore} pts` : undefined}
             onClick={() => navigate("/memory")}
-          />
-          <GameTile
-            title="Coloring Focus"
-            subtitle="Color. Breathe. Reset."
-            played={scores.coloring !== undefined}
-            onClick={() => navigate("/color")}
           />
         </div>
       </div>

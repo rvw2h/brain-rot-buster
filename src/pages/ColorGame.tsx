@@ -15,7 +15,7 @@ const BRUSH_SIZES = [
   { id: "large", size: 20, dot: 20 },
 ];
 
-const OUTLINES = [
+export const OUTLINES = [
   { id: "mandala_01", name: "Mandala 01", cat: "Mandala" },
   { id: "mandala_02", name: "Mandala 02", cat: "Mandala" },
   { id: "flower_01", name: "Flower", cat: "Nature" },
@@ -99,7 +99,7 @@ function drawOutline(ctx: CanvasRenderingContext2D, id: string, w: number, h: nu
   }
 }
 
-type Phase = "picker" | "canvas" | "result";
+export type Phase = "picker" | "canvas" | "result";
 
 const ColorGame = () => {
   const navigate = useNavigate();
@@ -126,6 +126,19 @@ const ColorGame = () => {
   const pinchDistanceRef = useRef<number | null>(null);
   const initialPanRef = useRef<{ x: number; y: number } | null>(null);
   const lastPanPosRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Handle entry from Relax tab or direct URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get("id");
+    if (id) {
+      const found = OUTLINES.find(o => o.id === id);
+      if (found) {
+        setSelectedImage(found);
+        setPhase("canvas");
+      }
+    }
+  }, []);
 
   // Check for saved canvases on mount
   useEffect(() => {
@@ -402,11 +415,11 @@ const ColorGame = () => {
   const formatTime = (s: number) =>
     `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-  // PICKER
+  // PICKER (internal fallback)
   if (phase === "picker") {
     return (
-      <div className="h-screen overflow-hidden flex flex-col p-5 pb-24">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start mb-4 flex-shrink-0">
+      <div className="h-screen overflow-hidden flex flex-col p-5">
+        <button onClick={() => navigate("/relax")} className="text-muted-foreground text-sm self-start mb-4 flex-shrink-0">
           ← Back
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2">
@@ -442,8 +455,8 @@ const ColorGame = () => {
   // RESULT
   if (phase === "result") {
     return (
-      <div className="h-screen overflow-hidden flex flex-col p-5 pb-24">
-        <button onClick={() => navigate("/home")} className="text-muted-foreground text-sm self-start flex-shrink-0">
+      <div className="h-screen overflow-hidden flex flex-col p-5">
+        <button onClick={() => navigate("/relax")} className="text-muted-foreground text-sm self-start flex-shrink-0">
           ←
         </button>
         <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mt-5">
@@ -453,12 +466,12 @@ const ColorGame = () => {
           <div className="font-display text-[60px] font-bold text-game-red leading-none">{formatTime(elapsed)}</div>
           <div className="font-sans text-sm text-muted-foreground mt-1">time spent</div>
         </div>
-        <div className="flex gap-2.5 justify-center flex-shrink-0">
+        <div className="flex gap-2.5 justify-center flex-shrink-0 mb-8">
           <button
-            onClick={() => setPhase("picker")}
+            onClick={() => navigate("/relax")}
             className="border border-border/50 rounded-lg px-[18px] py-2.5 font-sans text-xs text-muted-foreground"
           >
-            New Canvas
+            Relax
           </button>
           <button
             onClick={() => navigate("/home")}

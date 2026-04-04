@@ -65,26 +65,38 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return shuffled;
 }
 
-export function getWordsForSession(userId: string = 'local', date?: string): string[] {
-  const dateStr = date || new Date().toISOString().split('T')[0];
-  const seed = hashCode(`${userId}:${dateStr}:${Date.now()}`);
+export function getWordsForSession(count: number = 50, userId: string = 'local'): string[] {
+  const seed = hashCode(`${userId}:${Date.now()}:${Math.random()}`);
   const shuffled = seededShuffle(WORD_POOL, seed);
   const unique = [...new Set(shuffled)];
-  return unique.slice(0, 50);
+  return unique.slice(0, count);
+}
+
+export function getDistractorWords(exclude: string[], count: number = 25): string[] {
+  const seed = hashCode(`${exclude.join(",")}:${Date.now()}:${Math.random()}`);
+  const available = WORD_POOL.filter(w => !exclude.includes(w));
+  const shuffled = seededShuffle(available, seed);
+  return shuffled.slice(0, count);
 }
 
 export interface MatchResult {
   match: boolean;
   word?: string;
+  isDuplicate?: boolean;
 }
 
 export function checkWord(input: string, targetList: string[], alreadyRecalled: Set<string>): MatchResult {
   const normalized = input.toLowerCase().trim();
   if (!normalized) return { match: false };
   
+  // Check for duplicate first
+  for (const word of alreadyRecalled) {
+    if (normalized === word.toLowerCase()) {
+      return { match: false, isDuplicate: true };
+    }
+  }
+
   for (const word of targetList) {
-    if (alreadyRecalled.has(word)) continue;
-    
     if (normalized === word.toLowerCase()) {
       return { match: true, word };
     }
@@ -93,9 +105,11 @@ export function checkWord(input: string, targetList: string[], alreadyRecalled: 
   return { match: false };
 }
 
-export function calculateMemoryScore(correctRecall: number): number {
-  let score = correctRecall * 2;
-  if (correctRecall >= 40) score += 20;
-  else if (correctRecall >= 25) score += 10;
-  return score;
+export function calculateMemoryScore(correct: number, wrong: number = 0, mode: "simple" | "aura" = "simple"): number {
+  if (mode === "aura") {
+    // Aura: +4 for correct, -1 for wrong
+    return Math.max(-100, correct * 4 - wrong);
+  }
+  // Simple: +2 for correct, no penalty
+  return correct * 2;
 }

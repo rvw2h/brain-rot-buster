@@ -142,3 +142,40 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Floating score delta (+10, -5) */
+@keyframes float-up-fade {
+  0%   { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-24px); }
+}
+.animate-float-up { animation: float-up-fade 500ms ease-out forwards; }
+
+/* Screen flash (red for wrong, green for correct) */
+@keyframes screen-flash {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-screen-flash { animation: screen-flash 150ms ease-out forwards; }
+
+/* Score counter pulse on change */
+@keyframes score-pulse {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-score-pulse { animation: score-pulse 150ms ease-out; }
+
+/* Timer bar pulse at low time */
+@keyframes timer-pulse {
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+.animate-timer-pulse { animation: timer-pulse 0.5s ease-in-out infinite; }
+
+/* Mode switch overlay */
+@keyframes mode-switch-flash {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+.animate-mode-flash { animation: mode-switch-flash 300ms ease-out forwards; }
