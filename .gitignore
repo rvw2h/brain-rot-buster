@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment / Secrets
+.env
+.env.*
+!.env.example
+.vercel
+.supabase
+*.pem
+*.key
+*.cert
+
