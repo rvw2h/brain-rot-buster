@@ -40,13 +40,13 @@ const GameTile = ({ title, subtitle, played, lastScore, onClick, isAura }: GameT
       )}
 
       {played && !isAura && (
-        <div className="absolute left-0 top-0 bottom-0 w-[3px] bg-game-red" />
+        <div className="absolute left-0 top-0 bottom-0 w-[4px] bg-game-red rounded-l-[10px]" />
       )}
-      <div className={played && !isAura ? "pl-2" : ""}>
+      <div className="pl-6">
         <div className="font-display text-[15px] font-semibold text-foreground text-left">
           {title}
         </div>
-        <div className="font-sans text-xs text-muted-foreground mt-0.5 text-left">
+        <div className="font-sans text-xs text-muted-foreground mt-0.5 text-left uppercase tracking-wider opacity-60">
           {lastScore || subtitle}
         </div>
       </div>

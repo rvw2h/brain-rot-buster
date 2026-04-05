@@ -14,6 +14,7 @@ const BottomNav = () => {
     { icon: Calendar, path: "/history" },
     { icon: User, path: "/profile" },
   ];
+  if (!tabs.some((tab) => tab.path === location.pathname)) return null;
 
   return (
     <div className="flex justify-around items-center py-3 bg-surface border-t border-border/30 flex-shrink-0">

@@ -71,6 +71,9 @@ const MemoryGame = () => {
   
   const preGameHeading = getMessage(isAura ? AURA_MEMORY_PREGAME : SIMPLE_MEMORY_PREGAME, dailySeed);
   
+  const score = calculateMemoryScore(recalled.size, wrongChips.length, isAura ? "aura" : "simple");
+  const accuracy = words.length > 0 ? Math.round((recalled.size / words.length) * 100) : 0;
+
   const resultMessage = useMemo(() => {
     if (!isAura) {
       return getMessage(score > 0 ? SIMPLE_RESULT_POSITIVE : SIMPLE_RESULT_LOW, dailySeed);
@@ -194,8 +197,6 @@ const MemoryGame = () => {
     });
   };
 
-  const score = calculateMemoryScore(recalled.size, wrongChips.length, isAura ? "aura" : "simple");
-  const accuracy = words.length > 0 ? Math.round((recalled.size / words.length) * 100) : 0;
 
   useEffect(() => {
     if (phase === "result") {
@@ -277,7 +278,6 @@ const MemoryGame = () => {
              </p>
            )}
         </div>
-        <button onClick={() => navigate("/home")} className="mt-8 font-sans text-xs text-muted-foreground z-10">← Back</button>
       </div>
     );
   }

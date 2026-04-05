@@ -291,7 +291,6 @@ const MathGame = () => {
              </p>
            )}
         </div>
-        <button onClick={() => navigate("/home")} className="mt-8 font-sans text-xs text-muted-foreground z-10">← Back</button>
       </div>
     );
   }

@@ -5,6 +5,12 @@ import GameTile from "@/components/game/GameTile";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppMode } from "@/contexts/ModeContext";
 import { supabase } from "@/lib/supabase";
+import { 
+  SIMPLE_RESULT_POSITIVE, 
+  AURA_RESULT_BEAST, 
+  getDailySeed, 
+  getMessage 
+} from "@/lib/messages";
 
 interface ScoreData {
   math?: number;
@@ -104,7 +110,7 @@ const HomePage = () => {
         <div className="absolute inset-0 z-50 bg-[#FF2D55] animate-mode-flash pointer-events-none" />
       )}
       
-      <div className="flex-1 p-4 px-[18px] flex flex-col">
+      <div className="flex-1 p-5 flex flex-col">
         {/* Header */}
         <div className="flex justify-between items-center mb-5">
           <span className="font-sans text-[11px] text-muted-foreground">{dateStr}</span>
@@ -131,9 +137,9 @@ const HomePage = () => {
 
         {/* Score card */}
         <div 
-          className={`rounded-[10px] p-3.5 px-3 flex justify-around mb-3 transition-all ${
+          className={`w-full rounded-[10px] p-3.5 px-3 flex justify-around mb-5 transition-all ${
             isAura 
-              ? "bg-[#161616] border-b border-[#FF2D55]/30 shadow-[0_4px_20px_rgba(255,45,85,0.05)]" 
+              ? "bg-[#161616] border border-[#FF2D55]/20 shadow-[0_0_16px_rgba(255,45,85,0.1)]" 
               : "bg-surface shadow-[0_0_0_1px_hsl(var(--border)/0.5)]"
           }`}
         >
@@ -164,7 +170,7 @@ const HomePage = () => {
         </div>
 
         {/* Mode Toggle */}
-        <div className="flex p-1 bg-surface rounded-full mb-6 relative overflow-hidden h-10 shadow-[0_0_0_1px_hsl(var(--border)/0.5)]">
+        <div className="flex p-1 bg-surface rounded-full mb-2.5 relative overflow-hidden h-10 shadow-[0_0_0_1px_hsl(var(--border)/0.5)]">
           <div 
             className={`absolute top-1 bottom-1 w-[calc(50%-4px)] rounded-full transition-all duration-200 ease-out ${
               mode === "simple" ? "left-1 bg-elevated" : "left-[calc(50%+3px)] bg-[#FF2D55]"
@@ -188,17 +194,31 @@ const HomePage = () => {
           </button>
         </div>
 
+        {/* Mode Message */}
+        <div className="mb-6 text-center">
+          <p 
+            className={`font-sans text-[13px] font-medium transition-colors ${
+              isAura ? "text-[#FF2D55]/70" : "text-[#888888]"
+            }`}
+          >
+            {getMessage(
+              isAura ? AURA_RESULT_BEAST : SIMPLE_RESULT_POSITIVE, 
+              getDailySeed(profile?.id || manualUser?.first_name || "guest")
+            )}
+          </p>
+        </div>
+
         {/* Tag */}
-        <div className="font-sans text-[10px] text-muted-foreground tracking-wider uppercase mb-2.5">
+        <div className="font-sans text-[10px] text-muted-foreground tracking-[0.1em] uppercase mb-3 px-1">
           {isAura ? "The Grinding Grounds" : "Today's Training"}
         </div>
 
         {/* Game tiles */}
-        <div className="flex flex-col gap-2 flex-1">
+        <div className="flex flex-col gap-3 w-full">
           <GameTile
             title="Rapid Math"
             subtitle={isAura ? "10s per question · negative marking" : "Solve BODMAS. 120 seconds."}
-            played={mathScore !== undefined}
+            played={!!mathScore}
             isAura={isAura}
             lastScore={mathScore !== undefined ? `${mathScore} pts` : undefined}
             onClick={() => navigate("/math")}
@@ -206,7 +226,7 @@ const HomePage = () => {
           <GameTile
             title="Memory Recall"
             subtitle={isAura ? "Type to recall · wrong = -1pt" : "Memorise words. No pressure."}
-            played={memoryScore !== undefined}
+            played={!!memoryScore}
             isAura={isAura}
             lastScore={memoryScore !== undefined ? `${memoryScore} pts` : undefined}
             onClick={() => navigate("/memory")}
@@ -214,7 +234,7 @@ const HomePage = () => {
           <GameTile
             title={isAura ? "The Audit" : "Sharp Eye"}
             subtitle={isAura ? "Read everything · assume nothing" : "Observational detail. Spot errors."}
-            played={auditScore !== undefined}
+            played={!!scores.sharp_eye}
             isAura={isAura}
             lastScore={auditScore !== undefined ? `${auditScore} pts` : undefined}
             onClick={() => navigate("/sharp-eye")}

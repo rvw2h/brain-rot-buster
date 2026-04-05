@@ -21,6 +21,7 @@ import ProtectedRoute from "@/components/auth/ProtectedRoute";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 import SharpEyeGame from "./pages/SharpEyeGame";
+import SharpEyeReview from "./pages/SharpEyeReview";
 
 const queryClient = new QueryClient();
 
@@ -91,6 +92,14 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <SharpEyeGame />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/sharp-eye/review"
+                    element={
+                      <ProtectedRoute>
+                        <SharpEyeReview />
                       </ProtectedRoute>
                     }
                   />

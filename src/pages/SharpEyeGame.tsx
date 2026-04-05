@@ -39,6 +39,7 @@ const SharpEyeGame = () => {
   
   // Aura Audit specific: current question within scenario
   const [subQuestionIndex, setSubQuestionIndex] = useState(0);
+  const [answeredQuestions, setAnsweredQuestions] = useState<any[]>([]);
 
   const timerRef = useRef<ReturnType<typeof setInterval>>();
   const gameStartRef = useRef<number | null>(null);
@@ -103,6 +104,7 @@ const SharpEyeGame = () => {
     setSubQuestionIndex(0);
     setCorrectCount(0);
     setAssumptionErrors(0);
+    setAnsweredQuestions([]);
     setTimeLeft(SESSION_DURATION);
     setPhase("playing");
     gameStartRef.current = Date.now();
@@ -152,6 +154,24 @@ const SharpEyeGame = () => {
     }
 
     setFeedback({ isCorrect, message: explanation });
+
+    // Record answer for review
+    const currentAnswerData = {
+      stimulus: isAura ? current.brief : (
+        current.type === 'symbol_scan' ? current.stimulus :
+        current.type === 'sequence_check' ? `${current.stimulus.reference}\nvs\n${current.stimulus.version}` :
+        current.stimulus
+      ),
+      question: isAura ? current.questions[subQuestionIndex].question : current.question,
+      userAnswer: String(userAnswer),
+      correctAnswer: isAura ? String(current.questions[subQuestionIndex].correct) : String(current.correct),
+      isCorrect,
+      explanation: isAura ? current.questions[subQuestionIndex].explanation : current.explanation,
+      trapType: isAura ? current.questions[subQuestionIndex].trap_type : undefined,
+      scenarioBrief: isAura ? current.brief : undefined
+    };
+
+    setAnsweredQuestions(prev => [...prev, currentAnswerData]);
 
     // Auto-advance
     setTimeout(() => {
@@ -244,7 +264,6 @@ const SharpEyeGame = () => {
             </p>
           )}
         </div>
-        <button onClick={() => navigate("/home")} className="mt-8 font-sans text-xs text-muted-foreground z-10">← Back</button>
       </div>
     );
   }
@@ -255,7 +274,7 @@ const SharpEyeGame = () => {
     
     let resultMsg = "";
     if (isAura) {
-      if (assumptionErrors === 0 && score > 0) resultMsg = "Clean read. Zero assumptions. That's elite. 🔥";
+      if (assumptionErrors === 0 && score > 0) resultMsg = "Clean read. Zero assumptions. That's elite.";
       else if (assumptionErrors <= 2 && score > 0) resultMsg = "Mostly sharp. Watch for conditions in the small print.";
       else if (score <= 0) resultMsg = "The details were all there. You missed them. Lock in.";
       else resultMsg = "Still jumping to conclusions. Read every word next time.";
@@ -306,6 +325,21 @@ const SharpEyeGame = () => {
           </button>
           <button onClick={() => navigate("/home")} className="w-full py-4 bg-surface border border-border/50 rounded-xl font-display text-sm font-bold text-muted-foreground uppercase tracking-widest">
             Home
+          </button>
+          
+          <button 
+            onClick={() => navigate("/sharp-eye/review", { 
+              state: { 
+                questions: answeredQuestions,
+                gameType: isAura ? 'audit' : 'sharp_eye',
+                score,
+                correct: correctCount,
+                wrong: totalQ - correctCount
+              }
+            })}
+            className="w-full py-2.5 font-sans text-xs text-muted-foreground hover:text-foreground transition-colors uppercase tracking-[0.2em] mt-2 opacity-60"
+          >
+            Review answers →
           </button>
         </div>
       </div>

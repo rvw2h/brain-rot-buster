@@ -27,7 +27,7 @@ export const SIMPLE_MEMORY_PREGAME = [
 ];
 
 export const SIMPLE_RESULT_POSITIVE = [
-  "Your brain got a workout today. 🧠",
+  "Your brain got a workout today.",
   "Consistency is the real cheat code.",
   "One session closer to sharper thinking.",
   "You showed up. That's already winning.",
@@ -48,7 +48,7 @@ export const SIMPLE_RESULT_LOW = [
 ];
 
 export const AURA_MATH_PREGAME = [
-  "Lock in. 🔥",
+  "Lock in.",
   "No mercy mode.",
   "Prove it.",
   "Your brain vs the clock.",
@@ -74,16 +74,16 @@ export const AURA_MEMORY_PREGAME = [
 ];
 
 export const AURA_RESULT_BEAST = [
-  "Different breed. 🔥",
+  "Different breed.",
   "Built different. Proven today.",
   "That's an elite session right there.",
   "The gap between you and average just got wider.",
-  "Locked in and lethal. 🧠⚡",
+  "Locked in and lethal.",
   "That's not a score. That's a statement.",
   "Your brain is a weapon. You just sharpened it.",
   "Top percentile energy. Don't stop.",
   "That's what peak mental performance looks like.",
-  "Most people are scrolling. You're evolving. 🔥",
+  "Most people are scrolling. You're evolving.",
 ];
 
 export const AURA_RESULT_SOLID = [
